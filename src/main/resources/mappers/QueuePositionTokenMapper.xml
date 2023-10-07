@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.zcn.virtual.waiting.room.repository.QueuePositionTokenMapper">
+    <resultMap id="QueuePositionToken" type="QueuePositionToken">
+        <id column="id" property="id" javaType="int"/>
+        <result column="queue_id" property="queueId" javaType="string"/>
+        <result column="request_id" property="requestId" javaType="string"/>
+        <result column="position" property="position" javaType="long"/>
+        <result column="token_value" property="tokenValue" javaType="string"/>
+        <result column="create_time" property="createTime" javaType="java.util.Date"/>
+        <result column="expired_time" property="expiredTime" javaType="java.util.Date"/>
+    </resultMap>
+
+    <sql id="columns">
+        `id`,
+        <include refid="columnsNoId"/>
+    </sql>
+
+    <sql id="columnsNoId">
+        `queue_id`,
+        `request_id`,
+        `position`,
+        `token_value`,
+        `token_type`,
+        `create_time`,
+        `expired_time`
+    </sql>
+
+    <insert id="add" parameterType="QueuePositionToken" useGeneratedKeys="true" keyProperty="id">
+        insert queue_position_token(
+            <include refid="columnsNoId"/>
+        ) values (
+            #{queueId},
+            #{requestId},
+            #{position},
+            #{tokenValue},
+            #{tokenType},
+            #{createTime},
+            #{expiredTime}
+        )
+    </insert>
+
+    <select id="getByTokenValue" resultMap="QueuePositionToken">
+        select
+            <include refid="columns"/>
+        from
+            queue_position_token
+        where
+            token_value = #{tokenValue}
+    </select>
+</mapper>

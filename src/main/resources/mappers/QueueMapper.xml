@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.zcn.virtual.waiting.room.repository.QueueMapper">
+    <resultMap id="Queue" type="Queue">
+        <id column="id" property="id" javaType="int"/>
+        <result column="queue_id" property="queueId" javaType="string"/>
+        <result column="token_validity_second" property="tokenValiditySecond" javaType="int"/>
+        <result column="enable_queue_position_expiry" property="enableQueuePositionExpiry" javaType="boolean"/>
+        <result column="position_expiry_second" property="positionExpirySecond" javaType="int"/>
+    </resultMap>
+
+    <sql id="columns">
+        id,
+        <include refid="columnsNoId"/>
+    </sql>
+
+    <sql id="columnsNoId">
+        queue_id,
+        token_validity_second,
+        enable_queue_position_expiry,
+        position_expiry_second
+    </sql>
+
+    <insert id="add" parameterType="Queue" useGeneratedKeys="true" keyProperty="id">
+        insert queue(
+            <include refid="columnsNoId"/>
+        ) values (
+            #{queueId},
+            #{tokenValiditySecond},
+            #{enableQueuePositionExpiry},
+            #{positionExpirySecond}
+        )
+    </insert>
+
+    <select id="getById" resultMap="Queue">
+        select
+            <include refid="columns"/>
+        from
+            queue
+        where
+            id = #{id}
+    </select>
+
+    <select id="getByQueueId" resultMap="Queue">
+        select
+            <include refid="columns"/>
+        from
+            queue
+        where
+            queue_id = #{queueId}
+    </select>
+
+    <update id="update" parameterType="Queue">
+        update
+            queue
+        set
+            `token_validity_second` = #{tokenValiditySecond},
+            `enable_queue_position_expiry` = #{enableQueuePositionExpiry},
+            `position_expiry_second` = #{positionExpirySecond}
+        where
+            `id` = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="int">
+        delete from queue where id = #{id}
+    </delete>
+</mapper>
