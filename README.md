@@ -14,14 +14,14 @@
 ```mermaid
 sequenceDiagram
 
-  participant user as 用户
+  participant user as User
   participant room as Virtual Waiting Room
-  participant web as Website
   
   user ->> room: /assign_queue_pos
   room ->> user: return request_id
   
   loop until Status Code == 200
+  user ->> room: /queue_pos
   alt Status Code == 404
   room ->> user: return nil
   else Status Code == 200
@@ -47,7 +47,7 @@ sequenceDiagram
 ## Public APIs
 
 ### /assign_queue_pos
-进入等候室队列。这是一个异步请求，会立马返回一个 request_id。需要 /queue_pos 查看该请求是否已进入等候室
+进入等候室队列。这是一个异步请求，会立马返回一个 request_id。后续需要轮询 /queue_pos 查看该 request_id 是否已被处理。
 * Path: /assign_queue_pos
 * Method: post
 * Content-type: application/x-www-form-urlencoded
@@ -61,7 +61,7 @@ sequenceDiagram
   * 400: 无效参数
 
 ### /queue_pos/{queue_id}/{request_id}
-查看request_id是否已被处理，并返回其在等候室队列里的位置
+查看 request_id 是否已被处理，并返回其在等候室队列里的位置 request_pos。
 * Path: /queue_pos/{queue_id}/{request_id}
 * Method: get
 * Content-type: application/json
@@ -79,7 +79,7 @@ sequenceDiagram
   * 410: request_id 已过期
 
 ### /serving_pos/{queue_id}
-查看等候室当前服务的队列位置。当 serving_pos 大于或等于 request_id 时，可以请求 /generate_token 获取访问凭证。
+查看等候室当前服务的队列位置。当 serving_pos 大于或等于 request_pos 时，客户端可以请求 /generate_token 获取访问凭证。
 * Path: /serving_pos/{queue_id}
 * Method: get
 * Content-type: application/json
@@ -93,7 +93,7 @@ sequenceDiagram
   * 400: 无效参数
 
 ### /waiting_num/{queue_id}
-查看该等候室排队人数
+查看虚拟等候室排队人数，包括 request_pos > serving_pos 和 request_pos <= serving_pos 但还未进入网站的用户。
 * Path: /waiting_num/{queue_id}
 * Method: get
 * Content-type: application/json
@@ -107,7 +107,7 @@ sequenceDiagram
   * 400: 无效参数
 
 ### /generate_token
-生成访问令牌，只有持有访问令牌的请求才能访问网站
+生成访问令牌，只有持有访问令牌的请求才能访问网站。
 * Path: /generate_token
 * Method: post
 * Content-type: application/x-www-form-urlencoded
@@ -128,7 +128,7 @@ sequenceDiagram
 ## Private APIs
 
 ### /api/queue
-添加虚拟等候室
+添加虚拟等候室。
 * Path: /api/queue
 * Method: post
 * Content-type: application/json
@@ -149,7 +149,7 @@ sequenceDiagram
   * 500: 失败
 
 ### /api/queue
-更新虚拟等候室
+更新虚拟等候室信息。
 * Path: /api/queue
 * Method: put
 * Content-type: application/json
@@ -170,8 +170,8 @@ sequenceDiagram
   * 200: 成功
   * 500: 失败
 
-### /api/queue
-获取虚拟等候室信息
+### /api/queue/{id}
+获取虚拟等候室信息。
 * Path: /api/queue/{id}
 * Method: get
 * Content-type: application/json
@@ -189,8 +189,8 @@ sequenceDiagram
   * 404: 虚拟等候室不存在
   * 500: 失败
 
-### /api/queue
-删除虚拟等候室
+### /api/queue/{id}
+删除虚拟等候室。
 * Path: /api/queue/{id}
 * Method: delete
 * Content-type: application/json
@@ -204,8 +204,8 @@ sequenceDiagram
   * 500: 失败
 
 ### /api/queue/increment_serving_position
-递增可获得服务的队列位置。
-* Path: /api/queue/{id}
+递增虚拟等候室可获得服务的队列位置。
+* Path: /api/queue/increment_serving_position
 * Method: post
 * Content-type: application/x-www-form-urlencoded
 * Query: none
