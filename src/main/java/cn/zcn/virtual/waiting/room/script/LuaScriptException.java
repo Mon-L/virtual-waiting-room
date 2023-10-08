@@ -24,10 +24,6 @@ import cn.zcn.virtual.waiting.room.exception.WaitingRoomException;
  */
 public class LuaScriptException extends WaitingRoomException {
 
-    public LuaScriptException(String msg, Throwable t) {
-        super(msg, t);
-    }
-
     public LuaScriptException(String pattern, Object... args) {
         super(pattern, args);
     }

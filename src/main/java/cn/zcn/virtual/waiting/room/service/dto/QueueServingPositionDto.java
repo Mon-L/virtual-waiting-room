@@ -17,6 +17,7 @@
 
 package cn.zcn.virtual.waiting.room.service.dto;
 
+import cn.zcn.virtual.waiting.room.repository.entity.Queue;
 import java.util.Date;
 
 /**
@@ -76,5 +77,20 @@ public class QueueServingPositionDto {
 
     public void setServingPosition(Long servingPosition) {
         this.servingPosition = servingPosition;
+    }
+
+    public static QueueServingPositionDto from(Queue queue) {
+        if (queue == null) {
+            return null;
+        }
+
+        QueueServingPositionDto dto = new QueueServingPositionDto();
+        dto.setLastQueuePosition(0L);
+        dto.setServingPosition(0L);
+        dto.setTokenValiditySecond(queue.getTokenValiditySecond());
+        dto.setEnableQueuePositionExpiry(queue.isEnableQueuePositionExpiry() ? 1 : 0);
+        dto.setQueuePositionExpiryPeriod(queue.getPositionExpirySecond());
+        dto.setServingPositionIssuedTime(new Date());
+        return dto;
     }
 }

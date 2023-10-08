@@ -80,6 +80,10 @@ public class QueueDto {
     }
 
     public static QueueDto from(Queue queue) {
+        if (queue == null) {
+            return null;
+        }
+
         QueueDto dto = new QueueDto();
         dto.setId(queue.getId());
         dto.setQueueId(queue.getQueueId());

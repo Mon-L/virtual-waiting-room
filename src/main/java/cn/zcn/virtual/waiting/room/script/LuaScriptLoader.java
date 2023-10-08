@@ -17,64 +17,28 @@
 
 package cn.zcn.virtual.waiting.room.script;
 
-import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
-import org.springframework.data.redis.core.script.RedisScript;
 
 /**
- * 加载 {classes}/scripts/ 下lua脚本
+ * 加载所有lua脚本
  *
  * @author zicung
  */
 public class LuaScriptLoader {
 
-    public static final String GET_QUEUE_POS = "get_queue_pos";
-    public static final String GET_WAITING_NUM = "get_waiting_num";
-    public static final String ENQUEUE = "enqueue";
-    public static final String DEQUEUE = "dequeue";
-    public static final String INCREMENT_SERVING_POSITION = "increment_serving_position";
+    private final Map<Class<?>, BaseScript> scripts = new HashMap<>();
 
-    private final Map<String, String> scripts = new HashMap<>();
-
-    public void init() throws LuaScriptException {
-        try {
-            Resource[] resources = new PathMatchingResourcePatternResolver().getResources("scripts/**.lua");
-            for (Resource r : resources) {
-                loadScript(r);
-            }
-        } catch (IOException e) {
-            throw new LuaScriptException("Failed to load lua scripts.", e);
+    public void init(List<? extends BaseScript> baseScripts) throws LuaScriptException {
+        for (BaseScript script : baseScripts) {
+            script.init();
+            scripts.put(script.getClass(), script);
         }
     }
 
-    private void loadScript(Resource resource) throws IOException {
-        String filename = resource.getFilename();
-        if (filename == null) {
-            throw new LuaScriptException(
-                    "Failed to get lua script filename. File:{}",
-                    resource.getURI().getPath());
-        }
-
-        int idx = filename.lastIndexOf('.');
-        if (idx != -1) {
-            filename = filename.substring(0, idx);
-        }
-
-        LuaReader luaReader = new LuaReader(resource.getInputStream());
-        String compactContent = luaReader.getCompactContent().trim();
-        if (compactContent.isEmpty()) {
-            throw new LuaScriptException(
-                    "Lua script is empty exclude comments. File:{}",
-                    resource.getURI().getPath());
-        }
-        scripts.put(filename, compactContent);
-    }
-
-    public <T> RedisScript<T> get(String name, Class<T> resultType) {
-        String content = scripts.get(name);
-        return content == null ? null : RedisScript.of(content, resultType);
+    @SuppressWarnings("unchecked")
+    public <T extends BaseScript> T get(Class<? extends BaseScript> klass) {
+        return (T) scripts.get(klass);
     }
 }

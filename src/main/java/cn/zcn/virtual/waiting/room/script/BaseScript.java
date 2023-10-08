@@ -24,23 +24,40 @@ import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Token;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.data.redis.core.script.RedisScript;
 
 /**
- * 从文件流中读取lua代码
  * @author zicung
  */
-public class LuaReader {
+public abstract class BaseScript {
 
-    private final InputStream inputStream;
+    private String content;
 
-    public LuaReader(InputStream inputStream) {
-        this.inputStream = inputStream;
+    /**
+     * 初始化lua脚本信息
+     */
+    public final void init() throws LuaScriptException {
+        String path = getResourcePath();
+        if (path == null || path.trim().length() == 0) {
+            throw new LuaScriptException(
+                    "Script resource path must be specified. Class: {}",
+                    this.getClass().getSimpleName());
+        }
+
+        try {
+            Resource resource = new PathMatchingResourcePatternResolver().getResource(path);
+            this.content = getCompactContent(resource.getInputStream());
+        } catch (IOException e) {
+            throw new LuaScriptException("Failed to load lua script. Path:{}", path, e);
+        }
     }
 
     /**
      * 返回紧凑的lua代码。返回的代码中会去除以下不必要的内容，如单行注释、多行注释、换行符、不必要的空格符等
      */
-    public String getCompactContent() throws IOException {
+    private String getCompactContent(InputStream inputStream) throws IOException {
         StringBuilder compactContent = new StringBuilder();
         CharStream input = CharStreams.fromStream(inputStream);
         LuaLexer lexer = new LuaLexer(input);
@@ -68,4 +85,10 @@ public class LuaReader {
         }
         return compactContent.toString();
     }
+
+    protected <T> RedisScript<T> getRedisScript(Class<T> returnType) {
+        return RedisScript.of(content, returnType);
+    }
+
+    protected abstract String getResourcePath();
 }

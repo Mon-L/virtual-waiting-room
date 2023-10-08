@@ -26,9 +26,6 @@ public class UpdateQueueCmd {
 
     private Integer id;
 
-    @JsonProperty("queue_id")
-    private String queueId;
-
     @JsonProperty("token_validity_second")
     private Integer tokenValiditySecond;
 
@@ -44,14 +41,6 @@ public class UpdateQueueCmd {
 
     public void setId(Integer id) {
         this.id = id;
-    }
-
-    public String getQueueId() {
-        return queueId;
-    }
-
-    public void setQueueId(String queueId) {
-        this.queueId = queueId;
     }
 
     public Integer getTokenValiditySecond() {

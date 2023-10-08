@@ -20,6 +20,7 @@ package cn.zcn.virtual.waiting.room.service.dto;
 import cn.zcn.virtual.waiting.room.repository.entity.QueuePositionToken;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Duration;
+import java.time.Instant;
 
 /**
  * @author zicung
@@ -60,15 +61,18 @@ public class AccessTokenDto {
     }
 
     public static AccessTokenDto from(QueuePositionToken token) {
-        AccessTokenDto accessTokenDto = new AccessTokenDto();
-        accessTokenDto.setTokenValue(token.getTokenValue());
-        accessTokenDto.setTokenType(token.getTokenType());
-        if (token.getExpiredTime() != null) {
-            accessTokenDto.setExpiresIn(Duration.between(
-                            token.getCreateTime().toInstant(),
-                            token.getExpiredTime().toInstant())
-                    .getSeconds());
+        if (token == null) {
+            return null;
         }
-        return accessTokenDto;
+
+        AccessTokenDto dto = new AccessTokenDto();
+        dto.setTokenValue(token.getTokenValue());
+        dto.setTokenType(token.getTokenType());
+        if (token.getExpiredTime() != null) {
+            dto.setExpiresIn(
+                    Duration.between(Instant.now(), token.getExpiredTime().toInstant())
+                            .getSeconds());
+        }
+        return dto;
     }
 }

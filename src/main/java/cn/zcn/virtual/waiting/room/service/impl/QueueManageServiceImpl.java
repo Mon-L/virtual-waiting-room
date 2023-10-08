@@ -27,7 +27,6 @@ import cn.zcn.virtual.waiting.room.service.dto.QueueServingPositionDto;
 import cn.zcn.virtual.waiting.room.service.dto.UpdateQueueCmd;
 import cn.zcn.virtual.waiting.room.utils.RedisKeyUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.Date;
 import java.util.Map;
 import javax.annotation.Resource;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -68,13 +67,7 @@ public class QueueManageServiceImpl implements QueueManageService {
         queue.setPositionExpirySecond(createQueueCmd.getPositionExpirySecond());
         queueMapper.add(queue);
 
-        QueueServingPositionDto queueServingPositionDto = new QueueServingPositionDto();
-        queueServingPositionDto.setLastQueuePosition(0L);
-        queueServingPositionDto.setServingPosition(0L);
-        queueServingPositionDto.setTokenValiditySecond(queue.getTokenValiditySecond());
-        queueServingPositionDto.setEnableQueuePositionExpiry(queue.isEnableQueuePositionExpiry() ? 1 : 0);
-        queueServingPositionDto.setQueuePositionExpiryPeriod(queue.getPositionExpirySecond());
-        queueServingPositionDto.setServingPositionIssuedTime(new Date());
+        QueueServingPositionDto queueServingPositionDto = QueueServingPositionDto.from(queue);
         redisTemplate
                 .opsForHash()
                 .putAll(
@@ -137,16 +130,12 @@ public class QueueManageServiceImpl implements QueueManageService {
         if (queue == null) {
             throw new WaitingRoomException("Queue cant be found. Id:{}", updateQueueCmd.getId());
         }
-
         queue.setTokenValiditySecond(updateQueueCmd.getTokenValiditySecond());
         queue.setEnableQueuePositionExpiry(updateQueueCmd.getEnableQueuePositionExpiry());
         queue.setPositionExpirySecond(updateQueueCmd.getPositionExpirySecond());
         queueMapper.update(queue);
 
-        QueueServingPositionDto queueServingPositionDto = new QueueServingPositionDto();
-        queueServingPositionDto.setTokenValiditySecond(queue.getTokenValiditySecond());
-        queueServingPositionDto.setEnableQueuePositionExpiry(queue.isEnableQueuePositionExpiry() ? 1 : 0);
-        queueServingPositionDto.setQueuePositionExpiryPeriod(queue.getPositionExpirySecond());
+        QueueServingPositionDto queueServingPositionDto = QueueServingPositionDto.from(queue);
         redisTemplate
                 .opsForHash()
                 .putAll(

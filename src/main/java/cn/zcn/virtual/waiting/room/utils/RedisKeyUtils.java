@@ -19,14 +19,33 @@ package cn.zcn.virtual.waiting.room.utils;
 
 import org.slf4j.helpers.MessageFormatter;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 /**
  * @author zicung
  */
 public class RedisKeyUtils {
 
+    /**
+     * 存储等候室基本信息
+     */
     private static final String QUEUE = "queue.{}";
+
+    /**
+     * 存储在等候室排队的 Request IDs
+     */
     private static final String WAITING_QUEUE = "waiting-queue.{}";
+
+    /**
+     * 存储Request ID 的信息
+     */
     private static final String REQUEST = "request.{}.{}";
+
+    /**
+     * 存储等待过期的Request IDs
+     */
     private static final String EXPIRED_REQUESTS = "expired.requests.{}";
 
     public static String getQueueKey(String queueId) {
@@ -43,6 +62,12 @@ public class RedisKeyUtils {
 
     public static String getExpiredRequests(String queueId) {
         return formatKey(EXPIRED_REQUESTS, queueId);
+    }
+
+    public static List<String> joinKeys(String... keys) {
+        List<String> list = new ArrayList<>();
+        Collections.addAll(list, keys);
+        return list;
     }
 
     private static String formatKey(String pattern, String... args) {
