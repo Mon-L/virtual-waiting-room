@@ -68,7 +68,7 @@ public class PrivateAPI {
 
     @RequestMapping(path = "{id}", method = RequestMethod.DELETE)
     public ResponseEntity<Void> deleteQueue(@PathVariable int id) {
-        if (queueManageService.deleteById(id)) {
+        if (queueManageService.deleteById(id) != null) {
             return ResponseEntity.ok(null);
         } else {
             return ResponseEntity.notFound().build();

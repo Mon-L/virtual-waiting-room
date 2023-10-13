@@ -26,6 +26,9 @@ import cn.zcn.virtual.waiting.room.service.AssignPosService;
 import cn.zcn.virtual.waiting.room.service.QueueManageService;
 import cn.zcn.virtual.waiting.room.service.QueueService;
 import cn.zcn.virtual.waiting.room.service.dto.QueueDto;
+import java.util.Date;
+import java.util.UUID;
+import javax.annotation.Resource;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.producer.SendStatus;
 import org.apache.rocketmq.spring.annotation.MessageModel;
@@ -33,10 +36,6 @@ import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.stereotype.Service;
-
-import javax.annotation.Resource;
-import java.util.Date;
-import java.util.UUID;
 
 /**
  * @author zicung
@@ -79,7 +78,7 @@ public class AssignPosServiceImpl implements AssignPosService, RocketMQListener<
 
         SendResult sendResult = rocketMQTemplate.syncSend(TOPIC_ASSIGN_POS, reqPos);
         if (sendResult.getSendStatus() != SendStatus.SEND_OK) {
-            throw new WaitingRoomException("Failed to send RequestId to MQ. SendStatus:"
+            throw new WaitingRoomException("Failed to send RequestPosition to MQ. SendStatus:"
                     + sendResult.getSendStatus().name());
         }
         return reqPos.getRequestId();

@@ -55,7 +55,18 @@ public class WaitingRoomConfiguration {
         redisTemplate.setConnectionFactory(redisConnectionFactory);
         redisTemplate.setEnableTransactionSupport(true);
 
-        ObjectMapper objectMapper = new ObjectMapper()
+        redisTemplate.setKeySerializer(new StringRedisSerializer());
+        redisTemplate.setValueSerializer(jackson2JsonRedisSerializer());
+        redisTemplate.setHashKeySerializer(new StringRedisSerializer());
+        redisTemplate.setHashValueSerializer(jackson2JsonRedisSerializer());
+        return redisTemplate;
+    }
+
+    @Bean
+    public Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer() {
+        Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer =
+                new Jackson2JsonRedisSerializer<>(Object.class);
+        jackson2JsonRedisSerializer.setObjectMapper(new ObjectMapper()
                 .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)
                 .setSerializationInclusion(JsonInclude.Include.NON_NULL)
                 .setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
@@ -66,17 +77,9 @@ public class WaitingRoomConfiguration {
                 .activateDefaultTyping(
                         LaissezFaireSubTypeValidator.instance,
                         ObjectMapper.DefaultTyping.NON_FINAL,
-                        JsonTypeInfo.As.PROPERTY);
+                        JsonTypeInfo.As.PROPERTY));
 
-        Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer =
-                new Jackson2JsonRedisSerializer<>(Object.class);
-        jackson2JsonRedisSerializer.setObjectMapper(objectMapper);
-
-        redisTemplate.setKeySerializer(new StringRedisSerializer());
-        redisTemplate.setValueSerializer(jackson2JsonRedisSerializer);
-        redisTemplate.setHashKeySerializer(new StringRedisSerializer());
-        redisTemplate.setHashValueSerializer(jackson2JsonRedisSerializer);
-        return redisTemplate;
+        return jackson2JsonRedisSerializer;
     }
 
     @Bean

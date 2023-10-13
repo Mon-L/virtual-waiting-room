@@ -28,6 +28,8 @@ import cn.zcn.virtual.waiting.room.service.dto.QueueDto;
 import cn.zcn.virtual.waiting.room.service.dto.UpdateQueueCmd;
 import java.util.Date;
 import javax.annotation.Resource;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,6 +64,7 @@ public class QueueManageServiceImpl implements QueueManageService {
         queue.setPositionExpirySecond(createQueueCmd.getPositionExpirySecond());
         queueMapper.add(queue);
 
+        // 设置初始 ServingPosition
         QueueServingPosition queueServingPosition = new QueueServingPosition();
         queueServingPosition.setQueueId(queue.getQueueId());
         queueServingPosition.setServingPosition(0L);
@@ -82,6 +85,7 @@ public class QueueManageServiceImpl implements QueueManageService {
     }
 
     @Override
+    @Cacheable(cacheNames = "queue", key = "#queueId")
     public QueueDto getQueueByQueueId(String queueId) throws WaitingRoomException {
         if (queueId == null) {
             throw new WaitingRoomException("Missing queueId.");
@@ -92,23 +96,23 @@ public class QueueManageServiceImpl implements QueueManageService {
     }
 
     @Override
-    @Transactional
-    public boolean deleteById(Integer id) throws WaitingRoomException {
+    @CacheEvict(cacheNames = "queue", key = "#result.queueId")
+    public QueueDto deleteById(Integer id) throws WaitingRoomException {
         if (id == null) {
             throw new WaitingRoomException("Missing queue id.");
         }
 
         Queue exist = queueMapper.getById(id);
         if (exist == null) {
-            return false;
+            return null;
         }
 
         int deleted = queueMapper.deleteById(exist.getId());
-        return deleted >= 0;
+        return deleted >= 0 ? QueueDto.from(exist) : null;
     }
 
     @Override
-    @Transactional
+    @CacheEvict(cacheNames = "queue", key = "#result.queueId")
     public QueueDto updateQueue(UpdateQueueCmd updateQueueCmd) throws WaitingRoomException {
         if (updateQueueCmd.getId() == null) {
             throw new WaitingRoomException("Id must not be null.");

@@ -34,5 +34,8 @@ public interface RequestPositionMapper {
 
     RequestPosition getByQueueIdAndRequestId(@Param("queueId") String queueId, @Param("requestId") String requestId);
 
-    int changeRequestStatus(@Param("id") int id, @Param("oldStatus") RequestStatus oldStatus, @Param("newStatus") RequestStatus newStatus);
+    int changeRequestStatus(
+            @Param("id") int id,
+            @Param("oldStatus") RequestStatus oldStatus,
+            @Param("newStatus") RequestStatus newStatus);
 }

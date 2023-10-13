@@ -33,21 +33,25 @@ import cn.zcn.virtual.waiting.room.service.QueueService;
 import cn.zcn.virtual.waiting.room.service.dto.AccessTokenDto;
 import cn.zcn.virtual.waiting.room.service.dto.QueueDto;
 import cn.zcn.virtual.waiting.room.utils.RedisKeyUtils;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import javax.annotation.Resource;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.UUID;
+import javax.annotation.Resource;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * @author zicung
  */
 @Service
 public class QueueServiceImpl implements QueueService {
+
+    @Resource
+    private QueueService that;
 
     @Resource
     private LuaScriptLoader redisScriptLoader;
@@ -68,12 +72,13 @@ public class QueueServiceImpl implements QueueService {
     private QueueServingPositionMapper queueServingPositionMapper;
 
     @Override
-    public long getPosition(String queueId, String requestId)
-            throws InvalidRequestIdException, RequestNotProcessedException {
-        checkQueue(queueId);
-        RequestPosition requestPosition = loadRequestPosition(queueId, requestId);
-        checkIfProcessed(requestPosition);
-        return requestPosition.getQueuePosition();
+    @Cacheable(cacheNames = "request", key = "#requestId")
+    public RequestPosition getRequestPosition(String queueId, String requestId) throws InvalidRequestIdException {
+        RequestPosition requestPosition = requestPositionMapper.getByQueueIdAndRequestId(queueId, requestId);
+        if (requestPosition != null) {
+            return requestPosition;
+        }
+        throw new InvalidRequestIdException("No request be found. QueueId:{}, RequestId:{}.", queueId, requestId);
     }
 
     @Override
@@ -84,18 +89,20 @@ public class QueueServiceImpl implements QueueService {
     }
 
     @Override
+    @Cacheable(cacheNames = "queue:latestServingPosition", key = "#queueId")
     public QueueServingPosition getLatestServingPosition(String queueId) {
         checkQueue(queueId);
         return queueServingPositionMapper.getLatestPositionByQueueId(queueId, false);
     }
 
     @Override
+    @CacheEvict(cacheNames = "request", key = "#requestId")
     public void enqueue(String queueId, String requestId)
             throws InvalidQueueIdException, InvalidRequestIdException, RequestExpiredException {
         checkQueue(queueId);
 
         // 获取request
-        RequestPosition requestPosition = loadRequestPosition(queueId, requestId);
+        RequestPosition requestPosition = that.getRequestPosition(queueId, requestId);
 
         // 进入等候室
         EnqueueScript enqueueScript = redisScriptLoader.get(EnqueueScript.class);
@@ -112,6 +119,7 @@ public class QueueServiceImpl implements QueueService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "queue:latestServingPosition", key = "#queueId")
     public long incrementServingPosition(String queueId, int incrementBy) throws InvalidQueueIdException {
         checkQueue(queueId);
 
@@ -132,18 +140,20 @@ public class QueueServiceImpl implements QueueService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "request", key = "#requestId")
     public AccessTokenDto generateToken(String queueId, String requestId) throws WaitingRoomException {
         QueueDto queue = checkQueue(queueId);
         QueueServingPosition latestServingPosition = getLatestServingPosition(queueId);
 
         // check request
-        RequestPosition requestPosition = loadRequestPosition(queueId, requestId);
+        RequestPosition requestPosition = that.getRequestPosition(queueId, requestId);
         checkIfProcessed(requestPosition);
         checkIfServed(latestServingPosition, requestPosition);
         checkIfExpired(queue, latestServingPosition, requestPosition);
 
-        //change request status
-        int successNum = requestPositionMapper.changeRequestStatus(requestPosition.getId(), RequestStatus.INCOMPLETE, RequestStatus.COMPLETED);
+        // change request status
+        int successNum = requestPositionMapper.changeRequestStatus(
+                requestPosition.getId(), RequestStatus.INCOMPLETE, RequestStatus.COMPLETED);
         if (successNum <= 0) {
             throw new WaitingRoomException("Request is completed. RequestId:{}", requestId);
         }
@@ -168,14 +178,6 @@ public class QueueServiceImpl implements QueueService {
         }
         queuePositionTokenMapper.add(queuePositionToken);
         return AccessTokenDto.from(queuePositionToken);
-    }
-
-    private RequestPosition loadRequestPosition(String queueId, String requestId) throws InvalidRequestIdException {
-        RequestPosition requestPosition = requestPositionMapper.getByQueueIdAndRequestId(queueId, requestId);
-        if (requestPosition != null) {
-            return requestPosition;
-        }
-        throw new InvalidRequestIdException("No request be found. QueueId:{}, RequestId:{}.", queueId, requestId);
     }
 
     private QueueDto checkQueue(String queueId) {

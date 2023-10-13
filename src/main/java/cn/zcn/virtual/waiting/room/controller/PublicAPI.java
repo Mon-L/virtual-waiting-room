@@ -17,9 +17,10 @@
 
 package cn.zcn.virtual.waiting.room.controller;
 
+import cn.zcn.virtual.waiting.room.exception.RequestNotProcessedException;
 import cn.zcn.virtual.waiting.room.repository.entity.QueueServingPosition;
+import cn.zcn.virtual.waiting.room.repository.entity.RequestPosition;
 import cn.zcn.virtual.waiting.room.service.AssignPosService;
-import cn.zcn.virtual.waiting.room.service.QueueManageService;
 import cn.zcn.virtual.waiting.room.service.QueueService;
 import cn.zcn.virtual.waiting.room.service.dto.AccessTokenDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,9 +39,6 @@ public class PublicAPI {
 
     @Resource
     private QueueService queueService;
-
-    @Resource
-    private QueueManageService queueManageService;
 
     @Resource
     private AssignPosService assignPosService;
@@ -63,9 +61,14 @@ public class PublicAPI {
             method = RequestMethod.GET,
             produces = "application/json")
     public Object queuePos(@PathVariable("queue_id") String queueId, @PathVariable("request_id") String requestId) {
-        long pos = queueService.getPosition(queueId, requestId);
+        RequestPosition requestPosition = queueService.getRequestPosition(queueId, requestId);
 
-        return objectMapper.createObjectNode().put("position", pos);
+        if (requestPosition.getQueuePosition() == null) {
+            throw new RequestNotProcessedException(
+                    "Request has not been processed. RequestId:{}", requestPosition.getRequestId());
+        }
+
+        return objectMapper.createObjectNode().put("position", requestPosition.getQueuePosition());
     }
 
     @ResponseBody

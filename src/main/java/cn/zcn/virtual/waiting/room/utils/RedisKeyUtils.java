@@ -28,23 +28,14 @@ import org.slf4j.helpers.MessageFormatter;
 public class RedisKeyUtils {
 
     /**
-     * 等候室基本信息
-     */
-    private static final String QUEUE = "queue.{}";
-
-    /**
      * 等候室最新position
      */
-    private static final String QUEUE_LATEST_POSITION = "queue.{}.latestPosition";
+    private static final String QUEUE_LATEST_POSITION = "queue:latestPosition:{}";
 
     /**
      * 等候室等待人数
      */
-    private static final String QUEUE_WAITING_NUM = "queue.{}.waitingNum";
-
-    public static String getQueueKey(String queueId) {
-        return formatKey(QUEUE, queueId);
-    }
+    private static final String QUEUE_WAITING_NUM = "queue:waitingNum:{}";
 
     public static String getQueueLatestPosition(String queueId) {
         return formatKey(QUEUE_LATEST_POSITION, queueId);

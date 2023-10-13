@@ -33,7 +33,7 @@ public interface QueueManageService {
 
     QueueDto getQueueByQueueId(String queueId) throws WaitingRoomException;
 
-    boolean deleteById(Integer id) throws WaitingRoomException;
+    QueueDto deleteById(Integer id) throws WaitingRoomException;
 
     QueueDto updateQueue(UpdateQueueCmd updateQueueCmd) throws WaitingRoomException;
 }

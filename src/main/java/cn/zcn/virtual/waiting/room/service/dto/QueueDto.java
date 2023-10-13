@@ -19,11 +19,12 @@ package cn.zcn.virtual.waiting.room.service.dto;
 
 import cn.zcn.virtual.waiting.room.repository.entity.Queue;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.Serializable;
 
 /**
  * @author zicung
  */
-public class QueueDto {
+public class QueueDto implements Serializable {
 
     private Integer id;
 
