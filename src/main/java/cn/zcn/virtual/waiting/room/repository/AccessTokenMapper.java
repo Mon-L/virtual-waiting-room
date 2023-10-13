@@ -17,13 +17,13 @@
 
 package cn.zcn.virtual.waiting.room.repository;
 
-import cn.zcn.virtual.waiting.room.repository.entity.QueuePositionToken;
+import cn.zcn.virtual.waiting.room.repository.entity.AccessToken;
 
 /**
  * @author zicung
  */
-public interface QueuePositionTokenMapper {
-    void add(QueuePositionToken token);
+public interface AccessTokenMapper {
+    void add(AccessToken token);
 
-    QueuePositionToken getByTokenValue(String token);
+    AccessToken getByTokenValue(String token);
 }

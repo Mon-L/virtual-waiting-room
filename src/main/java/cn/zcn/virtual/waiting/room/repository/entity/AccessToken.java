@@ -15,18 +15,33 @@
  * limitations under the License.
  */
 
-package cn.zcn.virtual.waiting.room.service.dto;
+package cn.zcn.virtual.waiting.room.repository.entity;
 
 import java.util.Date;
 
 /**
  * @author zicung
  */
-public class QueuePositionDto {
+public class AccessToken {
+
+    public static final String BEARER_TOKEN_TYPE = "Bearer";
+
+    private Integer id;
     private String queueId;
     private String requestId;
-    private Long queuePosition;
-    private Date entryTime;
+    private long position;
+    private String tokenValue;
+    private String tokenType;
+    private Date createTime;
+    private Date expiredTime;
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
 
     public String getQueueId() {
         return queueId;
@@ -44,19 +59,43 @@ public class QueuePositionDto {
         this.requestId = requestId;
     }
 
-    public Long getQueuePosition() {
-        return queuePosition;
+    public long getPosition() {
+        return position;
     }
 
-    public void setQueuePosition(Long queuePosition) {
-        this.queuePosition = queuePosition;
+    public void setPosition(long position) {
+        this.position = position;
     }
 
-    public Date getEntryTime() {
-        return entryTime;
+    public Date getCreateTime() {
+        return createTime;
     }
 
-    public void setEntryTime(Date entryTime) {
-        this.entryTime = entryTime;
+    public void setCreateTime(Date createTime) {
+        this.createTime = createTime;
+    }
+
+    public Date getExpiredTime() {
+        return expiredTime;
+    }
+
+    public void setExpiredTime(Date expiredTime) {
+        this.expiredTime = expiredTime;
+    }
+
+    public String getTokenValue() {
+        return tokenValue;
+    }
+
+    public void setTokenValue(String tokenValue) {
+        this.tokenValue = tokenValue;
+    }
+
+    public String getTokenType() {
+        return tokenType;
+    }
+
+    public void setTokenType(String tokenType) {
+        this.tokenType = tokenType;
     }
 }

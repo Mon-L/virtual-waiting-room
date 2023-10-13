@@ -17,7 +17,7 @@
 
 package cn.zcn.virtual.waiting.room.service.dto;
 
-import cn.zcn.virtual.waiting.room.repository.entity.QueuePositionToken;
+import cn.zcn.virtual.waiting.room.repository.entity.AccessToken;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Duration;
 import java.time.Instant;
@@ -60,7 +60,7 @@ public class AccessTokenDto {
         this.expiresIn = expiresIn;
     }
 
-    public static AccessTokenDto from(QueuePositionToken token) {
+    public static AccessTokenDto from(AccessToken token) {
         if (token == null) {
             return null;
         }

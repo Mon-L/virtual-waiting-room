@@ -18,29 +18,23 @@
 package cn.zcn.virtual.waiting.room.service;
 
 import cn.zcn.virtual.waiting.room.exception.*;
-import cn.zcn.virtual.waiting.room.repository.entity.QueuePosition;
+import cn.zcn.virtual.waiting.room.repository.entity.QueueServingPosition;
 import cn.zcn.virtual.waiting.room.service.dto.AccessTokenDto;
-import cn.zcn.virtual.waiting.room.service.dto.QueueServingPositionDto;
 
 /**
  * @author zicung
  */
 public interface QueueService {
 
-    long getRequestPosition(String queueId, String requestId)
-            throws InvalidRequestIdException, RequestNotProcessedException, RequestExpiredException;
+    long getPosition(String queueId, String requestId) throws InvalidRequestIdException, RequestNotProcessedException;
 
-    QueuePosition enqueue(String queueId, String requestId) throws InvalidQueueIdException;
+    QueueServingPosition getLatestServingPosition(String queueId);
 
-    QueueServingPositionDto getServingPosition(String queueId) throws InvalidQueueIdException;
+    void enqueue(String queueId, String requestId) throws InvalidQueueIdException, RequestExpiredException;
 
-    long getWaitingNum(String queueId) throws InvalidQueueIdException;
+    int getWaitingNum(String queueId) throws InvalidQueueIdException;
 
     long incrementServingPosition(String queueId, int incrementBy) throws InvalidQueueIdException;
-
-    long dequeue(String queueId, String requestId)
-            throws InvalidQueueIdException, InvalidRequestIdException, RequestNotServedException,
-                    RequestExpiredException;
 
     AccessTokenDto generateToken(String queueId, String requestId) throws WaitingRoomException;
 }

@@ -19,17 +19,15 @@ package cn.zcn.virtual.waiting.room.service.impl;
 
 import cn.zcn.virtual.waiting.room.exception.WaitingRoomException;
 import cn.zcn.virtual.waiting.room.repository.QueueMapper;
+import cn.zcn.virtual.waiting.room.repository.QueueServingPositionMapper;
 import cn.zcn.virtual.waiting.room.repository.entity.Queue;
+import cn.zcn.virtual.waiting.room.repository.entity.QueueServingPosition;
 import cn.zcn.virtual.waiting.room.service.QueueManageService;
 import cn.zcn.virtual.waiting.room.service.dto.CreateQueueCmd;
 import cn.zcn.virtual.waiting.room.service.dto.QueueDto;
-import cn.zcn.virtual.waiting.room.service.dto.QueueServingPositionDto;
 import cn.zcn.virtual.waiting.room.service.dto.UpdateQueueCmd;
-import cn.zcn.virtual.waiting.room.utils.RedisKeyUtils;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.Map;
+import java.util.Date;
 import javax.annotation.Resource;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,10 +41,7 @@ public class QueueManageServiceImpl implements QueueManageService {
     private QueueMapper queueMapper;
 
     @Resource
-    private ObjectMapper objectMapper;
-
-    @Resource
-    private RedisTemplate<String, Object> redisTemplate;
+    private QueueServingPositionMapper queueServingPositionMapper;
 
     @Override
     @Transactional
@@ -67,12 +62,12 @@ public class QueueManageServiceImpl implements QueueManageService {
         queue.setPositionExpirySecond(createQueueCmd.getPositionExpirySecond());
         queueMapper.add(queue);
 
-        QueueServingPositionDto queueServingPositionDto = QueueServingPositionDto.from(queue);
-        redisTemplate
-                .opsForHash()
-                .putAll(
-                        RedisKeyUtils.getQueueKey(queue.getQueueId()),
-                        objectMapper.convertValue(queueServingPositionDto, Map.class));
+        QueueServingPosition queueServingPosition = new QueueServingPosition();
+        queueServingPosition.setQueueId(queue.getQueueId());
+        queueServingPosition.setServingPosition(0L);
+        queueServingPosition.setIssuedTime(new Date());
+        queueServingPositionMapper.add(queueServingPosition);
+
         return QueueDto.from(queue);
     }
 
@@ -109,14 +104,7 @@ public class QueueManageServiceImpl implements QueueManageService {
         }
 
         int deleted = queueMapper.deleteById(exist.getId());
-        if (deleted < 0) {
-            return false;
-        }
-
-        redisTemplate.delete(RedisKeyUtils.getQueueKey(exist.getQueueId()));
-        redisTemplate.delete(RedisKeyUtils.getWaitingQueueKey(exist.getQueueId()));
-        redisTemplate.delete(RedisKeyUtils.getExpiredRequests(exist.getQueueId()));
-        return true;
+        return deleted >= 0;
     }
 
     @Override
@@ -134,14 +122,6 @@ public class QueueManageServiceImpl implements QueueManageService {
         queue.setEnableQueuePositionExpiry(updateQueueCmd.getEnableQueuePositionExpiry());
         queue.setPositionExpirySecond(updateQueueCmd.getPositionExpirySecond());
         queueMapper.update(queue);
-
-        QueueServingPositionDto queueServingPositionDto = QueueServingPositionDto.from(queue);
-        redisTemplate
-                .opsForHash()
-                .putAll(
-                        RedisKeyUtils.getQueueKey(queue.getQueueId()),
-                        objectMapper.convertValue(queueServingPositionDto, Map.class));
-
         return QueueDto.from(queue);
     }
 }

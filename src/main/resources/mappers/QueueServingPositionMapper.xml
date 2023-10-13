@@ -29,7 +29,7 @@
         )
     </insert>
 
-    <select id="getLastPositionByQueueId" resultMap="QueueServingPosition">
+    <select id="getLatestPositionByQueueId" resultMap="QueueServingPosition">
         select
             <include refid="columns"/>
         from

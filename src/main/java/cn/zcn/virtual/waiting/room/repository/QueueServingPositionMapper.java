@@ -27,6 +27,6 @@ public interface QueueServingPositionMapper {
 
     void add(QueueServingPosition servingPos);
 
-    QueueServingPosition getLastPositionByQueueId(
+    QueueServingPosition getLatestPositionByQueueId(
             @Param("queueId") String queueId, @Param("forUpdate") boolean forUpdate);
 }

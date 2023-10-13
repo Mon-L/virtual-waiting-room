@@ -17,13 +17,13 @@
 
 package cn.zcn.virtual.waiting.room.controller;
 
+import cn.zcn.virtual.waiting.room.repository.entity.QueueServingPosition;
 import cn.zcn.virtual.waiting.room.service.AssignPosService;
+import cn.zcn.virtual.waiting.room.service.QueueManageService;
 import cn.zcn.virtual.waiting.room.service.QueueService;
 import cn.zcn.virtual.waiting.room.service.dto.AccessTokenDto;
-import cn.zcn.virtual.waiting.room.service.dto.QueueServingPositionDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import javax.annotation.Resource;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,6 +38,9 @@ public class PublicAPI {
 
     @Resource
     private QueueService queueService;
+
+    @Resource
+    private QueueManageService queueManageService;
 
     @Resource
     private AssignPosService assignPosService;
@@ -60,7 +63,7 @@ public class PublicAPI {
             method = RequestMethod.GET,
             produces = "application/json")
     public Object queuePos(@PathVariable("queue_id") String queueId, @PathVariable("request_id") String requestId) {
-        long pos = queueService.getRequestPosition(queueId, requestId);
+        long pos = queueService.getPosition(queueId, requestId);
 
         return objectMapper.createObjectNode().put("position", pos);
     }
@@ -68,19 +71,14 @@ public class PublicAPI {
     @ResponseBody
     @RequestMapping(path = "serving_pos/{queue_id}", method = RequestMethod.GET, produces = "application/json")
     public Object servingPos(@PathVariable("queue_id") String queueId) {
-        QueueServingPositionDto servingPos = queueService.getServingPosition(queueId);
-
-        if (servingPos == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        return objectMapper.createObjectNode().put("position", servingPos.getServingPosition());
+        QueueServingPosition latestServingPosition = queueService.getLatestServingPosition(queueId);
+        return objectMapper.createObjectNode().put("position", latestServingPosition.getServingPosition());
     }
 
     @ResponseBody
     @RequestMapping(path = "waiting_num/{queue_id}", method = RequestMethod.GET, produces = "application/json")
     public Object waitingNum(@PathVariable("queue_id") String queueId) {
-        long waitingNum = queueService.getWaitingNum(queueId);
+        int waitingNum = queueService.getWaitingNum(queueId);
 
         return objectMapper.createObjectNode().put("waiting_num", waitingNum);
     }

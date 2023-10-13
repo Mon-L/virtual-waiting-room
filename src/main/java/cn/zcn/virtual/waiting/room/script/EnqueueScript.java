@@ -17,22 +17,18 @@
 
 package cn.zcn.virtual.waiting.room.script;
 
-import cn.zcn.virtual.waiting.room.exception.InvalidQueueIdException;
-import cn.zcn.virtual.waiting.room.exception.InvalidRequestIdException;
+import static cn.zcn.virtual.waiting.room.utils.RedisKeyUtils.getQueueLatestPosition;
+import static cn.zcn.virtual.waiting.room.utils.RedisKeyUtils.getQueueWaitingNumKey;
+
 import cn.zcn.virtual.waiting.room.exception.UnexpectedReturnException;
 import cn.zcn.virtual.waiting.room.exception.WaitingRoomException;
+import cn.zcn.virtual.waiting.room.utils.RedisKeyUtils;
+import java.util.List;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 
-import java.util.Date;
-import java.util.List;
-
-import static cn.zcn.virtual.waiting.room.utils.RedisKeyUtils.*;
-
 /**
- * 加载 {@code classpath:scripts/enqueue.lua} 脚本。该脚本逻辑是执行 Request ID 进入等候室，并返回 request_pos。
- *
  * @author zicung
  */
 @Component
@@ -43,21 +39,14 @@ public class EnqueueScript extends BaseScript {
         return "scripts/enqueue.lua";
     }
 
-    public Long execute(RedisTemplate<String, Object> redisTemplate, String queueId, String requestId)
-            throws WaitingRoomException {
+    public long execute(RedisTemplate<String, Object> redisTemplate, String queueId) throws WaitingRoomException {
         RedisScript<Long> redisScript = getRedisScript(Long.class);
-        Date now = new Date();
-        List<String> keys =
-                joinKeys(getWaitingQueueKey(queueId), getRequestKey(queueId, requestId), getQueueKey(queueId));
-        Long pos = redisTemplate.execute(redisScript, keys, queueId, requestId, now.getTime());
-        if (pos == null) {
+        List<String> keys = RedisKeyUtils.joinKeys(getQueueLatestPosition(queueId), getQueueWaitingNumKey(queueId));
+        Long ret = redisTemplate.execute(redisScript, keys);
+        if (ret == null) {
             throw new UnexpectedReturnException("Expected Long but got null.");
-        } else if (pos == -1) {
-            throw new InvalidQueueIdException("No queue be found. QueueId:{}.", queueId);
-        } else if (pos == -2) {
-            throw new InvalidRequestIdException("No request be found. QueueId:{}, RequestId:{}.", queueId, requestId);
         } else {
-            return pos;
+            return ret;
         }
     }
 }

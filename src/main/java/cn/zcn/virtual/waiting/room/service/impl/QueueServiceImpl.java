@@ -17,29 +17,31 @@
 
 package cn.zcn.virtual.waiting.room.service.impl;
 
-import static cn.zcn.virtual.waiting.room.utils.RedisKeyUtils.getQueueKey;
-
 import cn.zcn.virtual.waiting.room.exception.*;
-import cn.zcn.virtual.waiting.room.repository.QueuePositionMapper;
-import cn.zcn.virtual.waiting.room.repository.QueuePositionTokenMapper;
+import cn.zcn.virtual.waiting.room.repository.AccessTokenMapper;
 import cn.zcn.virtual.waiting.room.repository.QueueServingPositionMapper;
-import cn.zcn.virtual.waiting.room.repository.entity.QueuePosition;
-import cn.zcn.virtual.waiting.room.repository.entity.QueuePositionToken;
+import cn.zcn.virtual.waiting.room.repository.RequestPositionMapper;
+import cn.zcn.virtual.waiting.room.repository.entity.AccessToken;
 import cn.zcn.virtual.waiting.room.repository.entity.QueueServingPosition;
-import cn.zcn.virtual.waiting.room.script.*;
+import cn.zcn.virtual.waiting.room.repository.entity.RequestPosition;
+import cn.zcn.virtual.waiting.room.repository.entity.RequestStatus;
+import cn.zcn.virtual.waiting.room.script.DequeueScript;
+import cn.zcn.virtual.waiting.room.script.EnqueueScript;
+import cn.zcn.virtual.waiting.room.script.LuaScriptLoader;
+import cn.zcn.virtual.waiting.room.service.QueueManageService;
 import cn.zcn.virtual.waiting.room.service.QueueService;
 import cn.zcn.virtual.waiting.room.service.dto.AccessTokenDto;
-import cn.zcn.virtual.waiting.room.service.dto.QueueServingPositionDto;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Date;
-import java.util.Map;
-import java.util.UUID;
-import javax.annotation.Resource;
+import cn.zcn.virtual.waiting.room.service.dto.QueueDto;
+import cn.zcn.virtual.waiting.room.utils.RedisKeyUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import javax.annotation.Resource;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
+import java.util.UUID;
 
 /**
  * @author zicung
@@ -48,16 +50,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class QueueServiceImpl implements QueueService {
 
     @Resource
-    private ObjectMapper objectMapper;
-
-    @Resource
     private LuaScriptLoader redisScriptLoader;
 
     @Resource
-    private QueuePositionMapper queuePositionMapper;
+    private QueueManageService queueManageService;
 
     @Resource
-    private QueuePositionTokenMapper queuePositionTokenMapper;
+    private RequestPositionMapper requestPositionMapper;
+
+    @Resource
+    private AccessTokenMapper queuePositionTokenMapper;
 
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
@@ -66,48 +68,58 @@ public class QueueServiceImpl implements QueueService {
     private QueueServingPositionMapper queueServingPositionMapper;
 
     @Override
-    public long getRequestPosition(String queueId, String requestId)
-            throws InvalidRequestIdException, RequestNotProcessedException, RequestExpiredException {
-        GetRequestPosScript getRequestPos = redisScriptLoader.get(GetRequestPosScript.class);
-        return getRequestPos.execute(redisTemplate, queueId, requestId);
+    public long getPosition(String queueId, String requestId)
+            throws InvalidRequestIdException, RequestNotProcessedException {
+        checkQueue(queueId);
+        RequestPosition requestPosition = loadRequestPosition(queueId, requestId);
+        checkIfProcessed(requestPosition);
+        return requestPosition.getQueuePosition();
     }
 
     @Override
-    public QueueServingPositionDto getServingPosition(String queueId) throws InvalidQueueIdException {
-        return getQueueServingPosition(queueId);
+    public int getWaitingNum(String queueId) throws InvalidQueueIdException {
+        checkQueue(queueId);
+        Integer waitingNum = (Integer) redisTemplate.opsForValue().get(RedisKeyUtils.getQueueWaitingNumKey(queueId));
+        return waitingNum == null ? 0 : waitingNum;
     }
 
     @Override
-    public long getWaitingNum(String queueId) throws InvalidQueueIdException {
-        GetQueueWaitingNumScript getWaitingNum = redisScriptLoader.get(GetQueueWaitingNumScript.class);
-        return getWaitingNum.execute(redisTemplate, queueId);
+    public QueueServingPosition getLatestServingPosition(String queueId) {
+        checkQueue(queueId);
+        return queueServingPositionMapper.getLatestPositionByQueueId(queueId, false);
     }
 
     @Override
-    public QueuePosition enqueue(String queueId, String requestId) throws InvalidQueueIdException {
-        EnqueueScript enqueue = redisScriptLoader.get(EnqueueScript.class);
-        Long requestPosition = enqueue.execute(redisTemplate, queueId, requestId);
+    public void enqueue(String queueId, String requestId)
+            throws InvalidQueueIdException, InvalidRequestIdException, RequestExpiredException {
+        checkQueue(queueId);
 
-        QueuePosition queuePosition = new QueuePosition();
-        queuePosition.setQueueId(queueId);
-        queuePosition.setRequestId(requestId);
-        queuePosition.setQueuePosition(requestPosition);
-        queuePosition.setEntryTime(new Date());
-        queuePositionMapper.add(queuePosition);
-        return queuePosition;
+        // 获取request
+        RequestPosition requestPosition = loadRequestPosition(queueId, requestId);
+
+        // 进入等候室
+        EnqueueScript enqueueScript = redisScriptLoader.get(EnqueueScript.class);
+        long pos = enqueueScript.execute(redisTemplate, queueId);
+
+        QueueServingPosition latestServingPosition = getLatestServingPosition(queueId);
+
+        // 设置入队信息
+        requestPosition.setQueuePosition(pos);
+        requestPosition.setEntryTime(new Date());
+        requestPosition.setCanServedWhenEntry(latestServingPosition.getServingPosition() >= pos);
+        requestPositionMapper.updateRequestPosition(requestPosition);
     }
 
     @Override
     @Transactional
-    public long incrementServingPosition(String queueId, int incrementBy) {
-        if (redisTemplate.hasKey(getQueueKey(queueId)) != Boolean.TRUE) {
-            throw new InvalidQueueIdException("No queue be found. QueueId:{}.", queueId);
-        }
+    public long incrementServingPosition(String queueId, int incrementBy) throws InvalidQueueIdException {
+        checkQueue(queueId);
 
-        QueueServingPosition lastQueueServingPos = queueServingPositionMapper.getLastPositionByQueueId(queueId, true);
+        QueueServingPosition latestQueueServingPos =
+                queueServingPositionMapper.getLatestPositionByQueueId(queueId, true);
         long newServingPos = incrementBy;
-        if (lastQueueServingPos != null) {
-            newServingPos += lastQueueServingPos.getServingPosition();
+        if (latestQueueServingPos != null) {
+            newServingPos += latestQueueServingPos.getServingPosition();
         }
 
         Date now = new Date();
@@ -116,52 +128,105 @@ public class QueueServiceImpl implements QueueService {
         newQueueServingPos.setIssuedTime(now);
         newQueueServingPos.setServingPosition(newServingPos);
         queueServingPositionMapper.add(newQueueServingPos);
-
-        IncrementServingPosScript incrementServingPos = redisScriptLoader.get(IncrementServingPosScript.class);
-        incrementServingPos.execute(redisTemplate, queueId, incrementBy, now);
         return newServingPos;
     }
 
     @Override
-    public long dequeue(String queueId, String requestId)
-            throws InvalidQueueIdException, InvalidRequestIdException, RequestNotServedException,
-                    RequestExpiredException {
-        DequeueScript dequeue = redisScriptLoader.get(DequeueScript.class);
-        return dequeue.execute(redisTemplate, queueId, requestId);
-    }
-
-    @Override
     public AccessTokenDto generateToken(String queueId, String requestId) throws WaitingRoomException {
-        long requestPos = dequeue(queueId, requestId);
-        QueueServingPositionDto queueServingPositionDto = getQueueServingPosition(queueId);
+        QueueDto queue = checkQueue(queueId);
+        QueueServingPosition latestServingPosition = getLatestServingPosition(queueId);
 
+        // check request
+        RequestPosition requestPosition = loadRequestPosition(queueId, requestId);
+        checkIfProcessed(requestPosition);
+        checkIfServed(latestServingPosition, requestPosition);
+        checkIfExpired(queue, latestServingPosition, requestPosition);
+
+        //change request status
+        int successNum = requestPositionMapper.changeRequestStatus(requestPosition.getId(), RequestStatus.INCOMPLETE, RequestStatus.COMPLETED);
+        if (successNum <= 0) {
+            throw new WaitingRoomException("Request is completed. RequestId:{}", requestId);
+        }
+
+        // dequeue
+        DequeueScript dequeueScript = redisScriptLoader.get(DequeueScript.class);
+        dequeueScript.execute(redisTemplate, queueId);
+
+        // generate token
         Instant now = Instant.now();
-        QueuePositionToken queuePositionToken = new QueuePositionToken();
+        AccessToken queuePositionToken = new AccessToken();
         queuePositionToken.setQueueId(queueId);
         queuePositionToken.setRequestId(requestId);
-        queuePositionToken.setPosition(requestPos);
+        queuePositionToken.setPosition(requestPosition.getQueuePosition());
         queuePositionToken.setCreateTime(Date.from(now));
-        queuePositionToken.setTokenType(QueuePositionToken.BEARER_TOKEN_TYPE);
+        queuePositionToken.setTokenType(AccessToken.BEARER_TOKEN_TYPE);
         queuePositionToken.setTokenValue(generateTokenValue());
 
-        if (queueServingPositionDto.getTokenValiditySecond() != null) {
-            Instant expiredTime = now.plus(queueServingPositionDto.getTokenValiditySecond(), ChronoUnit.SECONDS);
+        if (queue.getTokenValiditySecond() != null) {
+            Instant expiredTime = now.plus(queue.getTokenValiditySecond(), ChronoUnit.SECONDS);
             queuePositionToken.setExpiredTime(Date.from(expiredTime));
         }
         queuePositionTokenMapper.add(queuePositionToken);
         return AccessTokenDto.from(queuePositionToken);
     }
 
-    private QueueServingPositionDto getQueueServingPosition(String queueId) {
-        Map<Object, Object> fields = redisTemplate.opsForHash().entries(getQueueKey(queueId));
-        if (fields.isEmpty()) {
-            throw new InvalidQueueIdException("No queue serving position be found. QueueId:{}.", queueId);
+    private RequestPosition loadRequestPosition(String queueId, String requestId) throws InvalidRequestIdException {
+        RequestPosition requestPosition = requestPositionMapper.getByQueueIdAndRequestId(queueId, requestId);
+        if (requestPosition != null) {
+            return requestPosition;
+        }
+        throw new InvalidRequestIdException("No request be found. QueueId:{}, RequestId:{}.", queueId, requestId);
+    }
+
+    private QueueDto checkQueue(String queueId) {
+        QueueDto queue = queueManageService.getQueueByQueueId(queueId);
+        if (queue == null) {
+            throw new InvalidQueueIdException("No queue be found. QueueId:{}", queueId);
+        }
+        return queue;
+    }
+
+    private void checkIfProcessed(RequestPosition requestPosition) throws RequestNotProcessedException {
+        if (requestPosition.getQueuePosition() == null) {
+            throw new RequestNotProcessedException(
+                    "Request has not been processed. RequestId:{}", requestPosition.getRequestId());
+        }
+    }
+
+    private void checkIfExpired(
+            QueueDto queue, QueueServingPosition queueServingPosition, RequestPosition requestPosition)
+            throws RequestExpiredException {
+        if (!queue.getEnableQueuePositionExpiry()) {
+            return;
         }
 
-        return objectMapper.convertValue(fields, QueueServingPositionDto.class);
+        long tiq;
+        if (requestPosition.getCanServedWhenEntry()) {
+            tiq = dateDiff(requestPosition.getEntryTime(), new Date());
+        } else {
+            tiq = dateDiff(queueServingPosition.getIssuedTime(), new Date());
+        }
+
+        if (tiq >= queue.getPositionExpirySecond() * 1000) {
+            throw new RequestExpiredException("RequestId is expired. RequestId:{}.", requestPosition.getRequestId());
+        }
+    }
+
+    private void checkIfServed(QueueServingPosition queueServingPosition, RequestPosition requestPosition)
+            throws RequestNotServedException {
+        if (queueServingPosition.getServingPosition() < requestPosition.getQueuePosition()) {
+            throw new RequestNotServedException(
+                    "RequestId not being served. QueueId:{}, RequestId:{}.",
+                    queueServingPosition.getQueueId(),
+                    requestPosition.getQueuePosition());
+        }
     }
 
     private String generateTokenValue() {
         return UUID.randomUUID().toString().replace("-", "");
+    }
+
+    private long dateDiff(Date date1, Date date2) {
+        return date2.getTime() - date1.getTime();
     }
 }

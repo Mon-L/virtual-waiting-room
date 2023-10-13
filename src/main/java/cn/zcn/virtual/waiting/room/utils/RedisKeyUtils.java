@@ -17,11 +17,10 @@
 
 package cn.zcn.virtual.waiting.room.utils;
 
-import org.slf4j.helpers.MessageFormatter;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.slf4j.helpers.MessageFormatter;
 
 /**
  * @author zicung
@@ -29,48 +28,39 @@ import java.util.List;
 public class RedisKeyUtils {
 
     /**
-     * 存储等候室基本信息
+     * 等候室基本信息
      */
     private static final String QUEUE = "queue.{}";
 
     /**
-     * 存储在等候室排队的 Request IDs
+     * 等候室最新position
      */
-    private static final String WAITING_QUEUE = "waiting-queue.{}";
+    private static final String QUEUE_LATEST_POSITION = "queue.{}.latestPosition";
 
     /**
-     * 存储Request ID 的信息
+     * 等候室等待人数
      */
-    private static final String REQUEST = "request.{}.{}";
-
-    /**
-     * 存储等待过期的Request IDs
-     */
-    private static final String EXPIRED_REQUESTS = "expired.requests.{}";
+    private static final String QUEUE_WAITING_NUM = "queue.{}.waitingNum";
 
     public static String getQueueKey(String queueId) {
         return formatKey(QUEUE, queueId);
     }
 
-    public static String getWaitingQueueKey(String queueId) {
-        return formatKey(WAITING_QUEUE, queueId);
+    public static String getQueueLatestPosition(String queueId) {
+        return formatKey(QUEUE_LATEST_POSITION, queueId);
     }
 
-    public static String getRequestKey(String queueId, String requestId) {
-        return formatKey(REQUEST, queueId, requestId);
+    public static String getQueueWaitingNumKey(String queueId) {
+        return formatKey(QUEUE_WAITING_NUM, queueId);
     }
 
-    public static String getExpiredRequests(String queueId) {
-        return formatKey(EXPIRED_REQUESTS, queueId);
+    private static String formatKey(String pattern, String... args) {
+        return MessageFormatter.arrayFormat(pattern, args).getMessage();
     }
 
     public static List<String> joinKeys(String... keys) {
         List<String> list = new ArrayList<>();
         Collections.addAll(list, keys);
         return list;
-    }
-
-    private static String formatKey(String pattern, String... args) {
-        return MessageFormatter.arrayFormat(pattern, args).getMessage();
     }
 }

@@ -17,15 +17,22 @@
 
 package cn.zcn.virtual.waiting.room.repository;
 
-import cn.zcn.virtual.waiting.room.repository.entity.QueuePosition;
+import cn.zcn.virtual.waiting.room.repository.entity.RequestPosition;
+import cn.zcn.virtual.waiting.room.repository.entity.RequestStatus;
 import org.apache.ibatis.annotations.Param;
 
 /**
  * @author zicung
  */
-public interface QueuePositionMapper {
+public interface RequestPositionMapper {
 
-    void add(QueuePosition pos);
+    void add(RequestPosition pos);
 
-    QueuePosition getByQueueIdAndRequestId(@Param("queueId") String queueId, @Param("requestId") String requestId);
+    void updateRequestPosition(RequestPosition pos);
+
+    Long getQueueLatestPosition(@Param("queueId") String queueId);
+
+    RequestPosition getByQueueIdAndRequestId(@Param("queueId") String queueId, @Param("requestId") String requestId);
+
+    int changeRequestStatus(@Param("id") int id, @Param("oldStatus") RequestStatus oldStatus, @Param("newStatus") RequestStatus newStatus);
 }

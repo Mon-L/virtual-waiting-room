@@ -22,12 +22,15 @@ import java.util.Date;
 /**
  * @author zicung
  */
-public class QueuePosition {
+public class RequestPosition {
     private Integer id;
     private String queueId;
     private String requestId;
     private Long queuePosition;
     private Date entryTime;
+    private Boolean canServedWhenEntry = false;
+    private Date createTime;
+    private RequestStatus status = RequestStatus.INCOMPLETE;
 
     public Integer getId() {
         return id;
@@ -67,5 +70,29 @@ public class QueuePosition {
 
     public void setEntryTime(Date entryTime) {
         this.entryTime = entryTime;
+    }
+
+    public Date getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(Date createTime) {
+        this.createTime = createTime;
+    }
+
+    public Boolean getCanServedWhenEntry() {
+        return canServedWhenEntry;
+    }
+
+    public void setCanServedWhenEntry(Boolean canServedWhenEntry) {
+        this.canServedWhenEntry = canServedWhenEntry;
+    }
+
+    public RequestStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(RequestStatus status) {
+        this.status = status;
     }
 }

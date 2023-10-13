@@ -28,6 +28,7 @@ mybatis:
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    default-enum-type-handler: cn.zcn.virtual.waiting.room.repository.typeHandler.EnumValueTypeHandler
 
 pagehelper:
   helperDialect: mysql

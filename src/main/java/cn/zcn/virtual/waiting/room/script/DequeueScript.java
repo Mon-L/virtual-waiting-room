@@ -17,20 +17,16 @@
 
 package cn.zcn.virtual.waiting.room.script;
 
-import cn.zcn.virtual.waiting.room.exception.*;
+import static cn.zcn.virtual.waiting.room.utils.RedisKeyUtils.getQueueWaitingNumKey;
+
+import cn.zcn.virtual.waiting.room.exception.WaitingRoomException;
 import cn.zcn.virtual.waiting.room.utils.RedisKeyUtils;
+import java.util.List;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 
-import java.util.Date;
-import java.util.List;
-
-import static cn.zcn.virtual.waiting.room.utils.RedisKeyUtils.*;
-
 /**
- * 加载 {@code classpath:scripts/dequeue.lua} 脚本。该脚本的功能是使 Request ID 离开等候室，并返回 request_pos。
- *
  * @author zicung
  */
 @Component
@@ -41,27 +37,9 @@ public class DequeueScript extends BaseScript {
         return "scripts/dequeue.lua";
     }
 
-    public Long execute(RedisTemplate<String, Object> redisTemplate, String queueId, String requestId)
-            throws WaitingRoomException {
-        RedisScript<Long> redisScript = getRedisScript(Long.class);
-        List<String> keys = RedisKeyUtils.joinKeys(
-                getWaitingQueueKey(queueId),
-                getRequestKey(queueId, requestId),
-                getQueueKey(queueId),
-                getExpiredRequests(queueId));
-        Long ret = redisTemplate.execute(redisScript, keys, requestId, new Date().getTime());
-        if (ret == null) {
-            throw new UnexpectedReturnException("Expected Long but got null.");
-        } else if (ret == -4) {
-            throw new RequestExpiredException("RequestId is expired. QueueId:{}, RequestId:{}.", queueId, requestId);
-        } else if (ret == -3) {
-            throw new InvalidRequestIdException("No request be found. QueueId:{}, RequestId:{}.", queueId, requestId);
-        } else if (ret == -2) {
-            throw new InvalidQueueIdException("No queue be found. QueueId:{}.", queueId);
-        } else if (ret == -1) {
-            throw new RequestNotServedException(
-                    "RequestId not being served. QueueId:{}, RequestId:{}.", queueId, requestId);
-        }
-        return ret;
+    public void execute(RedisTemplate<String, Object> redisTemplate, String queueId) throws WaitingRoomException {
+        RedisScript<Void> redisScript = getRedisScript(Void.class);
+        List<String> keys = RedisKeyUtils.joinKeys(getQueueWaitingNumKey(queueId));
+        redisTemplate.execute(redisScript, keys);
     }
 }

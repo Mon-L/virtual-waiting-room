@@ -17,27 +17,26 @@
 
 package cn.zcn.virtual.waiting.room.service.impl;
 
-import static cn.zcn.virtual.waiting.room.utils.RedisKeyUtils.getQueueKey;
-import static cn.zcn.virtual.waiting.room.utils.RedisKeyUtils.getRequestKey;
-
 import cn.zcn.virtual.waiting.room.exception.InvalidQueueIdException;
+import cn.zcn.virtual.waiting.room.exception.WaitingRoomException;
+import cn.zcn.virtual.waiting.room.repository.RequestPositionMapper;
+import cn.zcn.virtual.waiting.room.repository.entity.RequestPosition;
+import cn.zcn.virtual.waiting.room.repository.entity.RequestStatus;
 import cn.zcn.virtual.waiting.room.service.AssignPosService;
+import cn.zcn.virtual.waiting.room.service.QueueManageService;
 import cn.zcn.virtual.waiting.room.service.QueueService;
-import cn.zcn.virtual.waiting.room.service.dto.AssignPosDto;
-import cn.zcn.virtual.waiting.room.service.dto.QueuePositionDto;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.Date;
-import java.util.Map;
-import java.util.UUID;
-import javax.annotation.Resource;
+import cn.zcn.virtual.waiting.room.service.dto.QueueDto;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.producer.SendStatus;
 import org.apache.rocketmq.spring.annotation.MessageModel;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+
+import javax.annotation.Resource;
+import java.util.Date;
+import java.util.UUID;
 
 /**
  * @author zicung
@@ -48,7 +47,7 @@ import org.springframework.stereotype.Service;
         topic = AssignPosServiceImpl.TOPIC_ASSIGN_POS,
         messageModel = MessageModel.CLUSTERING,
         maxReconsumeTimes = 2)
-public class AssignPosServiceImpl implements AssignPosService, RocketMQListener<AssignPosDto> {
+public class AssignPosServiceImpl implements AssignPosService, RocketMQListener<RequestPosition> {
 
     protected static final String TOPIC_ASSIGN_POS = "assign-pos";
 
@@ -56,43 +55,39 @@ public class AssignPosServiceImpl implements AssignPosService, RocketMQListener<
     private QueueService queueService;
 
     @Resource
-    private ObjectMapper objectMapper;
-
-    @Resource
     private RocketMQTemplate rocketMQTemplate;
 
     @Resource
-    private RedisTemplate<String, Object> redisTemplate;
+    private QueueManageService queueManageService;
+
+    @Resource
+    private RequestPositionMapper queuePositionMapper;
 
     @Override
     public String assignPos(String queueId) throws InvalidQueueIdException {
-        if (redisTemplate.hasKey(getQueueKey(queueId)) != Boolean.TRUE) {
-            throw new InvalidQueueIdException("No queue found. QueueId:{}", queueId);
+        QueueDto queue = queueManageService.getQueueByQueueId(queueId);
+        if (queue == null) {
+            throw new InvalidQueueIdException("No queue be found. QueueId:{}", queueId);
         }
 
-        String requestId = generateRequestId();
-        QueuePositionDto queuePositionDto = new QueuePositionDto();
-        queuePositionDto.setQueueId(queueId);
-        queuePositionDto.setRequestId(requestId);
-        redisTemplate
-                .opsForHash()
-                .putAll(getRequestKey(queueId, requestId), objectMapper.convertValue(queuePositionDto, Map.class));
+        RequestPosition reqPos = new RequestPosition();
+        reqPos.setQueueId(queueId);
+        reqPos.setRequestId(generateRequestId());
+        reqPos.setCreateTime(new Date());
+        reqPos.setStatus(RequestStatus.INCOMPLETE);
+        queuePositionMapper.add(reqPos);
 
-        AssignPosDto assignPosDto = new AssignPosDto();
-        assignPosDto.setQueueId(queueId);
-        assignPosDto.setRequestId(requestId);
-        assignPosDto.setCreateTime(new Date());
-        SendResult sendResult = rocketMQTemplate.syncSend(TOPIC_ASSIGN_POS, assignPosDto);
+        SendResult sendResult = rocketMQTemplate.syncSend(TOPIC_ASSIGN_POS, reqPos);
         if (sendResult.getSendStatus() != SendStatus.SEND_OK) {
-            throw new InvalidQueueIdException("Failed to send AssignPos to MQ. SendStatus:"
+            throw new WaitingRoomException("Failed to send RequestId to MQ. SendStatus:"
                     + sendResult.getSendStatus().name());
         }
-        return assignPosDto.getRequestId();
+        return reqPos.getRequestId();
     }
 
     @Override
-    public void onMessage(AssignPosDto assignPosDto) {
-        queueService.enqueue(assignPosDto.getQueueId(), assignPosDto.getRequestId());
+    public void onMessage(RequestPosition requestPosition) {
+        queueService.enqueue(requestPosition.getQueueId(), requestPosition.getRequestId());
     }
 
     private String generateRequestId() {
