@@ -85,7 +85,7 @@ public class QueueManageServiceImpl implements QueueManageService {
     }
 
     @Override
-    @Cacheable(cacheNames = "queue", key = "#queueId")
+    @Cacheable(cacheNames = "queue", unless = "#result == null", key = "#queueId")
     public QueueDto getQueueByQueueId(String queueId) throws WaitingRoomException {
         if (queueId == null) {
             throw new WaitingRoomException("Missing queueId.");

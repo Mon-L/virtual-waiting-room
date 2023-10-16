@@ -18,10 +18,19 @@
 package cn.zcn.virtual.waiting.room.service;
 
 import cn.zcn.virtual.waiting.room.exception.InvalidQueueIdException;
+import cn.zcn.virtual.waiting.room.exception.InvalidRequestIdException;
+import cn.zcn.virtual.waiting.room.repository.entity.RequestPosition;
+import cn.zcn.virtual.waiting.room.repository.entity.RequestStatus;
 
 /**
  * @author zicung
  */
-public interface AssignPosService {
-    String assignPos(String queueId) throws InvalidQueueIdException;
+public interface RequestService {
+    String assignPosition(String queueId) throws InvalidQueueIdException;
+
+    void updateRequestPosition(RequestPosition requestPosition);
+
+    boolean changeRequestStatus(int id, RequestStatus oldStatus, RequestStatus newStatus);
+
+    RequestPosition getRequestPosition(String queueId, String requestId) throws InvalidRequestIdException;
 }

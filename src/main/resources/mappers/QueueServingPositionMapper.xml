@@ -29,6 +29,14 @@
         )
     </insert>
 
+    <select id="getById" resultMap="QueueServingPosition">
+        select
+            <include refid="columns"/>
+        from
+            queue_serving_position
+        where id = #{id};
+    </select>
+
     <select id="getLatestPositionByQueueId" resultMap="QueueServingPosition">
         select
             <include refid="columns"/>

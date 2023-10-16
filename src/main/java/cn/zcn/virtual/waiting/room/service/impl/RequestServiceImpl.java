@@ -18,40 +18,31 @@
 package cn.zcn.virtual.waiting.room.service.impl;
 
 import cn.zcn.virtual.waiting.room.exception.InvalidQueueIdException;
+import cn.zcn.virtual.waiting.room.exception.InvalidRequestIdException;
 import cn.zcn.virtual.waiting.room.exception.WaitingRoomException;
 import cn.zcn.virtual.waiting.room.repository.RequestPositionMapper;
 import cn.zcn.virtual.waiting.room.repository.entity.RequestPosition;
 import cn.zcn.virtual.waiting.room.repository.entity.RequestStatus;
-import cn.zcn.virtual.waiting.room.service.AssignPosService;
 import cn.zcn.virtual.waiting.room.service.QueueManageService;
-import cn.zcn.virtual.waiting.room.service.QueueService;
+import cn.zcn.virtual.waiting.room.service.RequestService;
 import cn.zcn.virtual.waiting.room.service.dto.QueueDto;
 import java.util.Date;
 import java.util.UUID;
 import javax.annotation.Resource;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.producer.SendStatus;
-import org.apache.rocketmq.spring.annotation.MessageModel;
-import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
-import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 /**
  * @author zicung
  */
 @Service
-@RocketMQMessageListener(
-        consumerGroup = "virtual-waiting-room-consumer",
-        topic = AssignPosServiceImpl.TOPIC_ASSIGN_POS,
-        messageModel = MessageModel.CLUSTERING,
-        maxReconsumeTimes = 2)
-public class AssignPosServiceImpl implements AssignPosService, RocketMQListener<RequestPosition> {
+public class RequestServiceImpl implements RequestService {
 
     protected static final String TOPIC_ASSIGN_POS = "assign-pos";
-
-    @Resource
-    private QueueService queueService;
 
     @Resource
     private RocketMQTemplate rocketMQTemplate;
@@ -60,10 +51,13 @@ public class AssignPosServiceImpl implements AssignPosService, RocketMQListener<
     private QueueManageService queueManageService;
 
     @Resource
+    private RequestPositionMapper requestPositionMapper;
+
+    @Resource
     private RequestPositionMapper queuePositionMapper;
 
     @Override
-    public String assignPos(String queueId) throws InvalidQueueIdException {
+    public String assignPosition(String queueId) throws InvalidQueueIdException {
         QueueDto queue = queueManageService.getQueueByQueueId(queueId);
         if (queue == null) {
             throw new InvalidQueueIdException("No queue be found. QueueId:{}", queueId);
@@ -85,8 +79,26 @@ public class AssignPosServiceImpl implements AssignPosService, RocketMQListener<
     }
 
     @Override
-    public void onMessage(RequestPosition requestPosition) {
-        queueService.enqueue(requestPosition.getQueueId(), requestPosition.getRequestId());
+    @Cacheable(cacheNames = "request", unless = "#result == null", key = "#requestId")
+    public RequestPosition getRequestPosition(String queueId, String requestId) throws InvalidRequestIdException {
+        RequestPosition requestPosition = requestPositionMapper.getByQueueIdAndRequestId(queueId, requestId);
+        if (requestPosition != null) {
+            return requestPosition;
+        }
+        throw new InvalidRequestIdException("No request be found. QueueId:{}, RequestId:{}.", queueId, requestId);
+    }
+
+    @Override
+    @CacheEvict(cacheNames = "request", key = "#requestPosition.requestId")
+    public void updateRequestPosition(RequestPosition requestPosition) {
+        requestPositionMapper.updateRequestPosition(requestPosition);
+    }
+
+    @Override
+    @CacheEvict(cacheNames = "request", key = "#id", condition = "#result")
+    public boolean changeRequestStatus(int id, RequestStatus oldStatus, RequestStatus newStatus) {
+        int count = requestPositionMapper.changeRequestStatus(id, oldStatus, newStatus);
+        return count >= 1;
     }
 
     private String generateRequestId() {

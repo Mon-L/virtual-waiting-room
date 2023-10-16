@@ -7,6 +7,7 @@
         <result column="request_id" property="requestId" javaType="string"/>
         <result column="queue_position" property="queuePosition" javaType="long"/>
         <result column="can_served_when_entry" property="canServedWhenEntry" javaType="boolean"/>
+        <result column="serving_position_when_entry" property="servingPositionIdWhenEntry" javaType="int"/>
         <result column="entry_time" property="entryTime" javaType="java.util.Date"/>
         <result column="create_time" property="createTime" javaType="java.util.Date"/>
         <result column="status" property="status"/>
@@ -22,6 +23,7 @@
         `request_id`,
         `queue_position`,
         `can_served_when_entry`,
+        `serving_position_when_entry`,
         `entry_time`,
         `create_time`,
         `status`
@@ -35,6 +37,7 @@
             #{requestId},
             #{queuePosition},
             #{canServedWhenEntry},
+            #{servingPositionIdWhenEntry},
             #{entryTime},
             #{createTime},
             #{status}
@@ -47,7 +50,8 @@
         set
             `queue_position` = #{queuePosition},
             `entry_time` = #{entryTime},
-            `can_served_when_entry` = #{canServedWhenEntry}
+            `can_served_when_entry` = #{canServedWhenEntry},
+            `serving_position_when_entry` =  #{servingPositionIdWhenEntry}
         where
             `id` = #{id}
     </update>

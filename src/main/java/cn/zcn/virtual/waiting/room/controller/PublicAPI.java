@@ -20,8 +20,8 @@ package cn.zcn.virtual.waiting.room.controller;
 import cn.zcn.virtual.waiting.room.exception.RequestNotProcessedException;
 import cn.zcn.virtual.waiting.room.repository.entity.QueueServingPosition;
 import cn.zcn.virtual.waiting.room.repository.entity.RequestPosition;
-import cn.zcn.virtual.waiting.room.service.AssignPosService;
 import cn.zcn.virtual.waiting.room.service.QueueService;
+import cn.zcn.virtual.waiting.room.service.RequestService;
 import cn.zcn.virtual.waiting.room.service.dto.AccessTokenDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import javax.annotation.Resource;
@@ -41,7 +41,7 @@ public class PublicAPI {
     private QueueService queueService;
 
     @Resource
-    private AssignPosService assignPosService;
+    private RequestService requestService;
 
     @ResponseBody
     @RequestMapping(
@@ -50,7 +50,7 @@ public class PublicAPI {
             consumes = "application/x-www-form-urlencoded",
             produces = "application/json")
     public Object assignPos(@RequestParam("queue_id") String queueId) {
-        String requestId = assignPosService.assignPos(queueId);
+        String requestId = requestService.assignPosition(queueId);
 
         return objectMapper.createObjectNode().put("request_id", requestId);
     }
@@ -61,7 +61,7 @@ public class PublicAPI {
             method = RequestMethod.GET,
             produces = "application/json")
     public Object queuePos(@PathVariable("queue_id") String queueId, @PathVariable("request_id") String requestId) {
-        RequestPosition requestPosition = queueService.getRequestPosition(queueId, requestId);
+        RequestPosition requestPosition = requestService.getRequestPosition(queueId, requestId);
 
         if (requestPosition.getQueuePosition() == null) {
             throw new RequestNotProcessedException(

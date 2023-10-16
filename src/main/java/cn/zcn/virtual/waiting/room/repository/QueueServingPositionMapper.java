@@ -25,6 +25,8 @@ import org.apache.ibatis.annotations.Param;
  */
 public interface QueueServingPositionMapper {
 
+    QueueServingPosition getById(@Param("id") int id);
+
     void add(QueueServingPosition servingPos);
 
     QueueServingPosition getLatestPositionByQueueId(
