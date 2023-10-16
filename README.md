@@ -219,6 +219,35 @@ sequenceDiagram
   * 400: 无效参数
   * 500: 失败
 
+### /api/queue/update_token_status
+更改访问令牌的状态。
+* Path: /api/queue/update_token_status
+* Method: post
+* Content-type: application/x-www-form-urlencoded
+* Query: none
+* Request body:
+  * queue_id
+  * request_id
+  * status: 1, COMPLETED; 2, ABANDONED 
+* Response body: none
+* Status codes
+  * 200: 成功
+  * 400: 无效参数
+
+### /api/queue/{queue_id}/active_token_num
+更改访问令牌的状态。
+* Path: /api/queue/{queue_id}/active_token_num
+* Method: get
+* Content-type: application/json
+* Query:
+  * queue_id
+* Request body: none
+* Response body: 
+  * active_num
+* Status codes
+  * 200: 成功
+  * 400: 无效参数
+
 ## 参考
 
 * [AWS 虚拟等候室](https://aws.amazon.com/cn/solutions/implementations/virtual-waiting-room-on-aws/ )。

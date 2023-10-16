@@ -17,16 +17,19 @@
 
 package cn.zcn.virtual.waiting.room.controller;
 
+import cn.zcn.virtual.waiting.room.repository.entity.AccessTokenStatus;
 import cn.zcn.virtual.waiting.room.service.QueueManageService;
 import cn.zcn.virtual.waiting.room.service.QueueService;
 import cn.zcn.virtual.waiting.room.service.dto.CreateQueueCmd;
 import cn.zcn.virtual.waiting.room.service.dto.QueueDto;
 import cn.zcn.virtual.waiting.room.service.dto.UpdateQueueCmd;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import javax.annotation.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+
+import javax.annotation.Resource;
+import java.util.Date;
 
 /**
  * @author zicung
@@ -85,5 +88,22 @@ public class PrivateAPI {
             @RequestParam("queue_id") String queueId, @RequestParam("increment_by") int incrementBy) {
         long servingPos = queueService.incrementServingPosition(queueId, incrementBy);
         return objectMapper.createObjectNode().put("serving_pos", servingPos);
+    }
+
+    @ResponseBody
+    @RequestMapping(
+            path = "update_token_status",
+            method = RequestMethod.POST,
+            consumes = "application/x-www-form-urlencoded")
+    public void updateTokenStatus(
+            @RequestParam("queue_id") String queueId, @RequestParam("request_id") String requestId, @RequestParam("status") int status) {
+        queueService.updateTokenStatus(queueId, requestId, AccessTokenStatus.getByValue(status));
+    }
+
+    @ResponseBody
+    @RequestMapping(path = "/{queue_id}/active_token_num", method = RequestMethod.GET)
+    public Object getActiveTokenNum(@PathVariable("queue_id") String queueId) {
+        long num = queueService.getActiveTokenNum(queueId, new Date());
+        return objectMapper.createObjectNode().put("active_num", num);
     }
 }

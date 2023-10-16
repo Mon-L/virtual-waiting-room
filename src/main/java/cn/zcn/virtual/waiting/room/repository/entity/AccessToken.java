@@ -34,6 +34,7 @@ public class AccessToken {
     private String tokenType;
     private Date createTime;
     private Date expiredTime;
+    private AccessTokenStatus status;
 
     public Integer getId() {
         return id;
@@ -97,5 +98,13 @@ public class AccessToken {
 
     public void setTokenType(String tokenType) {
         this.tokenType = tokenType;
+    }
+
+    public AccessTokenStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(AccessTokenStatus status) {
+        this.status = status;
     }
 }

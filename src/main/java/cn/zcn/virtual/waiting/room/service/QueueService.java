@@ -18,10 +18,14 @@
 package cn.zcn.virtual.waiting.room.service;
 
 import cn.zcn.virtual.waiting.room.exception.InvalidQueueIdException;
+import cn.zcn.virtual.waiting.room.exception.InvalidRequestIdException;
 import cn.zcn.virtual.waiting.room.exception.RequestExpiredException;
 import cn.zcn.virtual.waiting.room.exception.WaitingRoomException;
+import cn.zcn.virtual.waiting.room.repository.entity.AccessTokenStatus;
 import cn.zcn.virtual.waiting.room.repository.entity.QueueServingPosition;
 import cn.zcn.virtual.waiting.room.service.dto.AccessTokenDto;
+
+import java.util.Date;
 
 /**
  * @author zicung
@@ -37,4 +41,8 @@ public interface QueueService {
     long incrementServingPosition(String queueId, int incrementBy) throws InvalidQueueIdException;
 
     AccessTokenDto generateToken(String queueId, String requestId) throws WaitingRoomException;
+
+    void updateTokenStatus(String queueId, String requestId, AccessTokenStatus newStatus) throws InvalidQueueIdException, InvalidRequestIdException;
+
+    long getActiveTokenNum(String queueId, Date after);
 }

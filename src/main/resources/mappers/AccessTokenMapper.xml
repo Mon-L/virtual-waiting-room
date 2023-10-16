@@ -9,6 +9,7 @@
         <result column="token_value" property="tokenValue" javaType="string"/>
         <result column="create_time" property="createTime" javaType="java.util.Date"/>
         <result column="expired_time" property="expiredTime" javaType="java.util.Date"/>
+        <result column="status" property="status"/>
     </resultMap>
 
     <sql id="columns">
@@ -23,7 +24,8 @@
         `token_value`,
         `token_type`,
         `create_time`,
-        `expired_time`
+        `expired_time`,
+        `status`
     </sql>
 
     <insert id="add" parameterType="AccessToken" useGeneratedKeys="true" keyProperty="id">
@@ -36,7 +38,8 @@
             #{tokenValue},
             #{tokenType},
             #{createTime},
-            #{expiredTime}
+            #{expiredTime},
+            #{status}
         )
     </insert>
 
@@ -47,5 +50,32 @@
             access_token
         where
             token_value = #{tokenValue}
+    </select>
+
+    <select id="getByQueueIdAndRequestId" resultMap="AccessToken">
+        select
+            <include refid="columns"/>
+        from
+            access_token
+        where
+            `queue_id` = #{queueId} and `request_id` = #{requestId}
+    </select>
+
+    <update id="changeStatus">
+        update
+            access_token
+        set
+            `status` = #{newStatus}
+        where
+            `queue_id` = #{queueId} and `request_id` = #{requestId} and `status` = #{oldStatus}
+    </update>
+
+    <select id="getActiveTokenNum" resultType="long">
+        select
+            count(*)
+        from
+            access_token
+        where
+            `queue_id` = #{queueId} and `status` = 3  and `expired_time` &gt; #{after}
     </select>
 </mapper>

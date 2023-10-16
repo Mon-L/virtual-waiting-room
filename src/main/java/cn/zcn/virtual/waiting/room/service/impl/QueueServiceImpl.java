@@ -20,10 +20,7 @@ package cn.zcn.virtual.waiting.room.service.impl;
 import cn.zcn.virtual.waiting.room.exception.*;
 import cn.zcn.virtual.waiting.room.repository.AccessTokenMapper;
 import cn.zcn.virtual.waiting.room.repository.QueueServingPositionMapper;
-import cn.zcn.virtual.waiting.room.repository.entity.AccessToken;
-import cn.zcn.virtual.waiting.room.repository.entity.QueueServingPosition;
-import cn.zcn.virtual.waiting.room.repository.entity.RequestPosition;
-import cn.zcn.virtual.waiting.room.repository.entity.RequestStatus;
+import cn.zcn.virtual.waiting.room.repository.entity.*;
 import cn.zcn.virtual.waiting.room.script.DequeueScript;
 import cn.zcn.virtual.waiting.room.script.EnqueueScript;
 import cn.zcn.virtual.waiting.room.script.LuaScriptLoader;
@@ -33,11 +30,6 @@ import cn.zcn.virtual.waiting.room.service.RequestService;
 import cn.zcn.virtual.waiting.room.service.dto.AccessTokenDto;
 import cn.zcn.virtual.waiting.room.service.dto.QueueDto;
 import cn.zcn.virtual.waiting.room.utils.RedisKeyUtils;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Date;
-import java.util.UUID;
-import javax.annotation.Resource;
 import org.apache.rocketmq.spring.annotation.MessageModel;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
@@ -46,6 +38,12 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import javax.annotation.Resource;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
+import java.util.UUID;
 
 /**
  * @author zicung
@@ -187,6 +185,7 @@ public class QueueServiceImpl implements QueueService, RocketMQListener<RequestP
         queuePositionToken.setPosition(requestPosition.getQueuePosition());
         queuePositionToken.setCreateTime(Date.from(now));
         queuePositionToken.setTokenType(AccessToken.BEARER_TOKEN_TYPE);
+        queuePositionToken.setStatus(AccessTokenStatus.ACTIVE);
         queuePositionToken.setTokenValue(generateTokenValue());
 
         if (queue.getTokenValiditySecond() != null) {
@@ -195,6 +194,26 @@ public class QueueServiceImpl implements QueueService, RocketMQListener<RequestP
         }
         accessTokenMapper.add(queuePositionToken);
         return AccessTokenDto.from(queuePositionToken);
+    }
+
+    @Override
+    public void updateTokenStatus(String queueId, String requestId, AccessTokenStatus newStatus) throws InvalidQueueIdException, InvalidRequestIdException {
+        if (newStatus != AccessTokenStatus.ABANDONED && newStatus != AccessTokenStatus.COMPLETED) {
+            throw new WaitingRoomException("The access token status must be {} or {}", AccessTokenStatus.COMPLETED, AccessTokenStatus.ABANDONED);
+        }
+
+        checkQueue(queueId);
+        requestService.getRequestPosition(queueId, requestId);
+        AccessToken accessToken = accessTokenMapper.getByQueueIdAndRequestId(queueId, requestId);
+        if (accessToken.getStatus() == newStatus) {
+            throw new WaitingRoomException("The status has already been set {}", newStatus.name());
+        }
+        accessTokenMapper.changeStatus(queueId, requestId, accessToken.getStatus(), newStatus);
+    }
+
+    @Override
+    public long getActiveTokenNum(String queueId, Date after) {
+        return accessTokenMapper.getActiveTokenNum(queueId, after);
     }
 
     private QueueDto checkQueue(String queueId) {
