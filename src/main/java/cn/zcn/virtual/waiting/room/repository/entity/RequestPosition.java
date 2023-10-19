@@ -29,7 +29,6 @@ public class RequestPosition {
     private Long queuePosition;
     private Date entryTime;
     private Boolean canServedWhenEntry = false;
-    private Integer servingPositionIdWhenEntry;
     private Date createTime;
     private RequestStatus status = RequestStatus.INCOMPLETE;
 
@@ -95,13 +94,5 @@ public class RequestPosition {
 
     public void setStatus(RequestStatus status) {
         this.status = status;
-    }
-
-    public Integer getServingPositionIdWhenEntry() {
-        return servingPositionIdWhenEntry;
-    }
-
-    public void setServingPositionIdWhenEntry(Integer servingPositionIdWhenEntry) {
-        this.servingPositionIdWhenEntry = servingPositionIdWhenEntry;
     }
 }

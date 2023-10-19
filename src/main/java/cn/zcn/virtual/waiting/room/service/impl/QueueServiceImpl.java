@@ -20,9 +20,11 @@ package cn.zcn.virtual.waiting.room.service.impl;
 import cn.zcn.virtual.waiting.room.exception.*;
 import cn.zcn.virtual.waiting.room.repository.AccessTokenMapper;
 import cn.zcn.virtual.waiting.room.repository.QueueServingPositionMapper;
+import cn.zcn.virtual.waiting.room.repository.RequestPositionMapper;
 import cn.zcn.virtual.waiting.room.repository.entity.*;
 import cn.zcn.virtual.waiting.room.script.DequeueScript;
 import cn.zcn.virtual.waiting.room.script.EnqueueScript;
+import cn.zcn.virtual.waiting.room.script.GetServingRequestsNumScript;
 import cn.zcn.virtual.waiting.room.script.LuaScriptLoader;
 import cn.zcn.virtual.waiting.room.service.QueueManageService;
 import cn.zcn.virtual.waiting.room.service.QueueService;
@@ -33,9 +35,9 @@ import cn.zcn.virtual.waiting.room.utils.RedisKeyUtils;
 import org.apache.rocketmq.spring.annotation.MessageModel;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +45,7 @@ import javax.annotation.Resource;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -63,6 +66,9 @@ public class QueueServiceImpl implements QueueService, RocketMQListener<RequestP
     private RequestService requestService;
 
     @Resource
+    private CacheManager cacheManager;
+
+    @Resource
     private QueueManageService queueManageService;
 
     @Resource
@@ -72,7 +78,33 @@ public class QueueServiceImpl implements QueueService, RocketMQListener<RequestP
     private RedisTemplate<String, Object> redisTemplate;
 
     @Resource
+    private RequestPositionMapper requestPositionMapper;
+
+    @Resource
     private QueueServingPositionMapper queueServingPositionMapper;
+
+    @Override
+    public void enqueue(String queueId, String requestId)
+            throws InvalidQueueIdException, InvalidRequestIdException, RequestExpiredException {
+        checkQueue(queueId);
+
+        // 获取RequestPosition，实际上是从缓存中获取。在生成RequestId时，RequestPosition写进了缓存，但还没有写入数据库。
+        RequestPosition requestPosition = requestService.getRequestPosition(queueId, requestId);
+
+        // 进入等候室
+        EnqueueScript enqueueScript = redisScriptLoader.get(EnqueueScript.class);
+        long pos = enqueueScript.execute(redisTemplate, queueId);
+
+        // 写入数据库
+        long latestServingPosition = getLatestServingPosition(queueId);
+        requestPosition.setQueuePosition(pos);
+        requestPosition.setEntryTime(new Date());
+        requestPosition.setCanServedWhenEntry(latestServingPosition >= pos);
+        requestPositionMapper.add(requestPosition);
+
+        // 更新Request缓存
+        cacheManager.getCache(RedisKeyUtils.REQUEST_NAME).put(requestId, requestPosition);
+    }
 
     @Override
     public int getWaitingNum(String queueId) throws InvalidQueueIdException {
@@ -82,53 +114,41 @@ public class QueueServiceImpl implements QueueService, RocketMQListener<RequestP
     }
 
     @Override
-    @Cacheable(cacheNames = "queue:latestServingPosition", unless = "#result == null", key = "#queueId")
-    public QueueServingPosition getLatestServingPosition(String queueId) {
-        checkQueue(queueId);
-        return queueServingPositionMapper.getLatestPositionByQueueId(queueId, false);
-    }
-
-    @Override
-    public void enqueue(String queueId, String requestId)
-            throws InvalidQueueIdException, InvalidRequestIdException, RequestExpiredException {
+    public long getLatestServingPosition(String queueId) {
         checkQueue(queueId);
 
-        // 获取request
-        RequestPosition requestPosition = requestService.getRequestPosition(queueId, requestId);
-
-        // 进入等候室
-        EnqueueScript enqueueScript = redisScriptLoader.get(EnqueueScript.class);
-        long pos = enqueueScript.execute(redisTemplate, queueId);
-
-        QueueServingPosition latestServingPosition = getLatestServingPosition(queueId);
-
-        // 设置入队信息
-        requestPosition.setQueuePosition(pos);
-        requestPosition.setEntryTime(new Date());
-        requestPosition.setCanServedWhenEntry(latestServingPosition.getServingPosition() >= pos);
-        requestPosition.setServingPositionIdWhenEntry(latestServingPosition.getId());
-        requestService.updateRequestPosition(requestPosition);
+        Set<ZSetOperations.TypedTuple<Object>> set = redisTemplate
+                .opsForZSet()
+                .reverseRangeWithScores(RedisKeyUtils.getQueueIssuedServingPosition(queueId), 0, 0);
+        if (set == null || set.isEmpty()) {
+            return 0;
+        }
+        return set.iterator().next().getScore().longValue();
     }
 
     @Override
     @Transactional
-    @CacheEvict(cacheNames = "queue:latestServingPosition", key = "#queueId")
     public long incrementServingPosition(String queueId, int incrementBy) throws InvalidQueueIdException {
         checkQueue(queueId);
-
         QueueServingPosition latestQueueServingPos =
                 queueServingPositionMapper.getLatestPositionByQueueId(queueId, true);
+
         long newServingPos = incrementBy;
         if (latestQueueServingPos != null) {
             newServingPos += latestQueueServingPos.getServingPosition();
         }
 
-        Date now = new Date();
+        Date issuedTime = new Date();
         QueueServingPosition newQueueServingPos = new QueueServingPosition();
         newQueueServingPos.setQueueId(queueId);
-        newQueueServingPos.setIssuedTime(now);
+        newQueueServingPos.setIssuedTime(issuedTime);
         newQueueServingPos.setServingPosition(newServingPos);
         queueServingPositionMapper.add(newQueueServingPos);
+
+        redisTemplate
+                .opsForZSet()
+                .add(RedisKeyUtils.getQueueIssuedServingPosition(queueId), issuedTime.getTime(), newServingPos);
+
         return newServingPos;
     }
 
@@ -141,10 +161,9 @@ public class QueueServiceImpl implements QueueService, RocketMQListener<RequestP
     @Transactional
     public AccessTokenDto generateToken(String queueId, String requestId) throws WaitingRoomException {
         QueueDto queue = checkQueue(queueId);
-        QueueServingPosition latestServingPosition = getLatestServingPosition(queueId);
-
-        // check request
         RequestPosition requestPosition = requestService.getRequestPosition(queueId, requestId);
+
+        // 检查Request状态，防止重复获取令牌
         if (requestPosition.getStatus() != RequestStatus.INCOMPLETE) {
             throw new WaitingRoomException(
                     "Excepted request status{}, but got {}.",
@@ -152,32 +171,31 @@ public class QueueServiceImpl implements QueueService, RocketMQListener<RequestP
                     requestPosition.getStatus().name());
         }
 
+        QueueServingPosition servingPosition =
+                queueServingPositionMapper.getFirstServingPositionGe(queueId, requestPosition.getQueuePosition());
+
         if (!requestIsProcessed(requestPosition)) {
             throw new RequestNotProcessedException(
                     "Request has not been processed. RequestId:{}", requestPosition.getRequestId());
         }
 
-        if (!requestIsServed(latestServingPosition, requestPosition)) {
+        if (!requestIsServed(servingPosition, requestPosition)) {
             throw new RequestNotServedException(
                     "Request not being served. QueueId:{}, RequestId:{}.", queueId, requestPosition.getQueuePosition());
         }
 
-        if (queue.getEnableQueuePositionExpiry() && requestIsExpired(queue, requestPosition)) {
+        if (queue.getEnableQueuePositionExpiry() && requestIsExpired(queue, requestPosition, servingPosition)) {
             throw new RequestExpiredException("Request is expired. RequestId:{}.", requestPosition.getRequestId());
         }
 
-        // change request status
+        // 更新Request状态
         boolean success = requestService.changeRequestStatus(
                 requestPosition.getId(), RequestStatus.INCOMPLETE, RequestStatus.COMPLETED);
         if (!success) {
             throw new WaitingRoomException("Failed to change request status. RequestId:{}", requestId);
         }
 
-        // dequeue
-        DequeueScript dequeueScript = redisScriptLoader.get(DequeueScript.class);
-        dequeueScript.execute(redisTemplate, queueId);
-
-        // generate token
+        // 生成访问令牌
         Instant now = Instant.now();
         AccessToken queuePositionToken = new AccessToken();
         queuePositionToken.setQueueId(queueId);
@@ -193,27 +211,45 @@ public class QueueServiceImpl implements QueueService, RocketMQListener<RequestP
             queuePositionToken.setExpiredTime(Date.from(expiredTime));
         }
         accessTokenMapper.add(queuePositionToken);
+
+        // Request离开排队队列
+        DequeueScript dequeueScript = redisScriptLoader.get(DequeueScript.class);
+        dequeueScript.execute(
+                redisTemplate,
+                queueId,
+                requestId,
+                queuePositionToken.getExpiredTime().getTime());
+
         return AccessTokenDto.from(queuePositionToken);
     }
 
     @Override
-    public void updateTokenStatus(String queueId, String requestId, AccessTokenStatus newStatus) throws InvalidQueueIdException, InvalidRequestIdException {
+    public void updateTokenStatus(String queueId, String requestId, AccessTokenStatus newStatus)
+            throws WaitingRoomException {
         if (newStatus != AccessTokenStatus.ABANDONED && newStatus != AccessTokenStatus.COMPLETED) {
-            throw new WaitingRoomException("The access token status must be {} or {}", AccessTokenStatus.COMPLETED, AccessTokenStatus.ABANDONED);
+            throw new WaitingRoomException(
+                    "The access token status must be {} or {}",
+                    AccessTokenStatus.COMPLETED,
+                    AccessTokenStatus.ABANDONED);
         }
 
-        checkQueue(queueId);
-        requestService.getRequestPosition(queueId, requestId);
         AccessToken accessToken = accessTokenMapper.getByQueueIdAndRequestId(queueId, requestId);
         if (accessToken.getStatus() == newStatus) {
             throw new WaitingRoomException("The status has already been set {}", newStatus.name());
         }
-        accessTokenMapper.changeStatus(queueId, requestId, accessToken.getStatus(), newStatus);
+
+        int num = accessTokenMapper.changeStatus(queueId, requestId, accessToken.getStatus(), newStatus);
+        if (num > 0) {
+            // 把Request从可进入网站的列表中移除
+            redisTemplate.opsForZSet().remove(RedisKeyUtils.getQueueServingRequests(queueId), requestId);
+        }
     }
 
     @Override
     public long getActiveTokenNum(String queueId, Date after) {
-        return accessTokenMapper.getActiveTokenNum(queueId, after);
+        GetServingRequestsNumScript getServingRequestsNumScript =
+                redisScriptLoader.get(GetServingRequestsNumScript.class);
+        return getServingRequestsNumScript.execute(redisTemplate, queueId, after.getTime());
     }
 
     private QueueDto checkQueue(String queueId) {
@@ -228,17 +264,14 @@ public class QueueServiceImpl implements QueueService, RocketMQListener<RequestP
         return requestPosition.getQueuePosition() != null;
     }
 
-    private boolean requestIsExpired(QueueDto queue, RequestPosition requestPosition) throws RequestExpiredException {
+    private boolean requestIsExpired(
+            QueueDto queue, RequestPosition requestPosition, QueueServingPosition servingPosition)
+            throws RequestExpiredException {
         long tiq;
         if (requestPosition.getCanServedWhenEntry()) {
             tiq = dateDiff(requestPosition.getEntryTime(), new Date());
         } else {
-            QueueServingPosition queueServingPosition =
-                    queueServingPositionMapper.getById(requestPosition.getServingPositionIdWhenEntry() + 1);
-            if (queueServingPosition == null) {
-                return false;
-            }
-            tiq = dateDiff(queueServingPosition.getIssuedTime(), new Date());
+            tiq = dateDiff(servingPosition.getIssuedTime(), new Date());
         }
 
         return tiq >= queue.getPositionExpirySecond() * 1000;
@@ -246,7 +279,7 @@ public class QueueServiceImpl implements QueueService, RocketMQListener<RequestP
 
     private boolean requestIsServed(QueueServingPosition queueServingPosition, RequestPosition requestPosition)
             throws RequestNotServedException {
-        return queueServingPosition.getServingPosition() >= requestPosition.getQueuePosition();
+        return queueServingPosition != null && queueServingPosition.getServingPosition() >= requestPosition.getQueuePosition();
     }
 
     private String generateTokenValue() {

@@ -18,7 +18,6 @@
 package cn.zcn.virtual.waiting.room.controller;
 
 import cn.zcn.virtual.waiting.room.exception.RequestNotProcessedException;
-import cn.zcn.virtual.waiting.room.repository.entity.QueueServingPosition;
 import cn.zcn.virtual.waiting.room.repository.entity.RequestPosition;
 import cn.zcn.virtual.waiting.room.service.QueueService;
 import cn.zcn.virtual.waiting.room.service.RequestService;
@@ -74,8 +73,8 @@ public class PublicAPI {
     @ResponseBody
     @RequestMapping(path = "serving_pos/{queue_id}", method = RequestMethod.GET, produces = "application/json")
     public Object servingPos(@PathVariable("queue_id") String queueId) {
-        QueueServingPosition latestServingPosition = queueService.getLatestServingPosition(queueId);
-        return objectMapper.createObjectNode().put("position", latestServingPosition.getServingPosition());
+        long latestServingPosition = queueService.getLatestServingPosition(queueId);
+        return objectMapper.createObjectNode().put("position", latestServingPosition);
     }
 
     @ResponseBody

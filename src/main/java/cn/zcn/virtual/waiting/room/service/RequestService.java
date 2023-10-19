@@ -26,9 +26,8 @@ import cn.zcn.virtual.waiting.room.repository.entity.RequestStatus;
  * @author zicung
  */
 public interface RequestService {
-    String assignPosition(String queueId) throws InvalidQueueIdException;
 
-    void updateRequestPosition(RequestPosition requestPosition);
+    String assignPosition(String queueId) throws InvalidQueueIdException;
 
     boolean changeRequestStatus(int id, RequestStatus oldStatus, RequestStatus newStatus);
 

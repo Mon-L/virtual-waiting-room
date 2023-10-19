@@ -24,12 +24,11 @@ import cn.zcn.virtual.waiting.room.service.dto.CreateQueueCmd;
 import cn.zcn.virtual.waiting.room.service.dto.QueueDto;
 import cn.zcn.virtual.waiting.room.service.dto.UpdateQueueCmd;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Date;
+import javax.annotation.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-
-import javax.annotation.Resource;
-import java.util.Date;
 
 /**
  * @author zicung
@@ -96,7 +95,9 @@ public class PrivateAPI {
             method = RequestMethod.POST,
             consumes = "application/x-www-form-urlencoded")
     public void updateTokenStatus(
-            @RequestParam("queue_id") String queueId, @RequestParam("request_id") String requestId, @RequestParam("status") int status) {
+            @RequestParam("queue_id") String queueId,
+            @RequestParam("request_id") String requestId,
+            @RequestParam("status") int status) {
         queueService.updateTokenStatus(queueId, requestId, AccessTokenStatus.getByValue(status));
     }
 

@@ -21,8 +21,6 @@ import cn.zcn.virtual.waiting.room.repository.entity.AccessToken;
 import cn.zcn.virtual.waiting.room.repository.entity.AccessTokenStatus;
 import org.apache.ibatis.annotations.Param;
 
-import java.util.Date;
-
 /**
  * @author zicung
  */
@@ -33,7 +31,9 @@ public interface AccessTokenMapper {
 
     AccessToken getByQueueIdAndRequestId(@Param("queueId") String queueId, @Param("requestId") String requestId);
 
-    void changeStatus(@Param("queueId") String queueId, @Param("requestId") String requestId, @Param("oldStatus") AccessTokenStatus oldStatus, @Param("newStatus") AccessTokenStatus newStatus);
-
-    long getActiveTokenNum(@Param("queueId") String queueId, @Param("after") Date after);
+    int changeStatus(
+            @Param("queueId") String queueId,
+            @Param("requestId") String requestId,
+            @Param("oldStatus") AccessTokenStatus oldStatus,
+            @Param("newStatus") AccessTokenStatus newStatus);
 }

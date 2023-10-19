@@ -28,14 +28,34 @@ import org.slf4j.helpers.MessageFormatter;
 public class RedisKeyUtils {
 
     /**
-     * 等候室最新position
+     * String。Queue。
      */
-    private static final String QUEUE_LATEST_POSITION = "queue:latestPosition:{}";
+    public static final String QUEUE_NAME = "queue";
 
     /**
-     * 等候室等待人数
+     * String。Request。
      */
-    private static final String QUEUE_WAITING_NUM = "queue:waitingNum:{}";
+    public static final String REQUEST_NAME = "request";
+
+    /**
+     * String。等候室发布的可进入网站的位置的列表。
+     */
+    public static final String QUEUE_ISSUED_SERVING_POSITIONS = "queue:issued.serving.positions:{}";
+
+    /**
+     * String。等候室最大已分配的位置。
+     */
+    private static final String QUEUE_LATEST_POSITION = "queue:latest.position:{}";
+
+    /**
+     * String。等候室等待人数。
+     */
+    private static final String QUEUE_WAITING_NUM = "queue:waiting.num:{}";
+
+    /**
+     * ZSet。记录已进入网站的requests。
+     */
+    private static final String QUEUE_SERVING_REQUESTS = "queue:serving.requests:{}";
 
     public static String getQueueLatestPosition(String queueId) {
         return formatKey(QUEUE_LATEST_POSITION, queueId);
@@ -43,6 +63,14 @@ public class RedisKeyUtils {
 
     public static String getQueueWaitingNumKey(String queueId) {
         return formatKey(QUEUE_WAITING_NUM, queueId);
+    }
+
+    public static String getQueueServingRequests(String queueId) {
+        return formatKey(QUEUE_SERVING_REQUESTS, queueId);
+    }
+
+    public static String getQueueIssuedServingPosition(String queueId) {
+        return formatKey(QUEUE_ISSUED_SERVING_POSITIONS, queueId);
     }
 
     private static String formatKey(String pattern, String... args) {

@@ -70,12 +70,4 @@
             `queue_id` = #{queueId} and `request_id` = #{requestId} and `status` = #{oldStatus}
     </update>
 
-    <select id="getActiveTokenNum" resultType="long">
-        select
-            count(*)
-        from
-            access_token
-        where
-            `queue_id` = #{queueId} and `status` = 3  and `expired_time` &gt; #{after}
-    </select>
 </mapper>

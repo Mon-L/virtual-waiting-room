@@ -26,12 +26,14 @@ import cn.zcn.virtual.waiting.room.repository.entity.RequestStatus;
 import cn.zcn.virtual.waiting.room.service.QueueManageService;
 import cn.zcn.virtual.waiting.room.service.RequestService;
 import cn.zcn.virtual.waiting.room.service.dto.QueueDto;
+import cn.zcn.virtual.waiting.room.utils.RedisKeyUtils;
 import java.util.Date;
 import java.util.UUID;
 import javax.annotation.Resource;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.producer.SendStatus;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -51,10 +53,10 @@ public class RequestServiceImpl implements RequestService {
     private QueueManageService queueManageService;
 
     @Resource
-    private RequestPositionMapper requestPositionMapper;
+    private CacheManager cacheManager;
 
     @Resource
-    private RequestPositionMapper queuePositionMapper;
+    private RequestPositionMapper requestPositionMapper;
 
     @Override
     public String assignPosition(String queueId) throws InvalidQueueIdException {
@@ -63,13 +65,15 @@ public class RequestServiceImpl implements RequestService {
             throw new InvalidQueueIdException("No queue be found. QueueId:{}", queueId);
         }
 
+        // 生成RequestId并写入缓存
         RequestPosition reqPos = new RequestPosition();
         reqPos.setQueueId(queueId);
         reqPos.setRequestId(generateRequestId());
         reqPos.setCreateTime(new Date());
         reqPos.setStatus(RequestStatus.INCOMPLETE);
-        queuePositionMapper.add(reqPos);
+        cacheManager.getCache(RedisKeyUtils.REQUEST_NAME).put(reqPos.getRequestId(), reqPos);
 
+        // 发送到MQ
         SendResult sendResult = rocketMQTemplate.syncSend(TOPIC_ASSIGN_POS, reqPos);
         if (sendResult.getSendStatus() != SendStatus.SEND_OK) {
             throw new WaitingRoomException("Failed to send RequestPosition to MQ. SendStatus:"
@@ -79,7 +83,7 @@ public class RequestServiceImpl implements RequestService {
     }
 
     @Override
-    @Cacheable(cacheNames = "request", unless = "#result == null", key = "#requestId")
+    @Cacheable(cacheNames = RedisKeyUtils.REQUEST_NAME, unless = "#result == null", key = "#requestId")
     public RequestPosition getRequestPosition(String queueId, String requestId) throws InvalidRequestIdException {
         RequestPosition requestPosition = requestPositionMapper.getByQueueIdAndRequestId(queueId, requestId);
         if (requestPosition != null) {
@@ -89,13 +93,7 @@ public class RequestServiceImpl implements RequestService {
     }
 
     @Override
-    @CacheEvict(cacheNames = "request", key = "#requestPosition.requestId")
-    public void updateRequestPosition(RequestPosition requestPosition) {
-        requestPositionMapper.updateRequestPosition(requestPosition);
-    }
-
-    @Override
-    @CacheEvict(cacheNames = "request", key = "#id", condition = "#result")
+    @CacheEvict(cacheNames = RedisKeyUtils.REQUEST_NAME, key = "#id", condition = "#result")
     public boolean changeRequestStatus(int id, RequestStatus oldStatus, RequestStatus newStatus) {
         int count = requestPositionMapper.changeRequestStatus(id, oldStatus, newStatus);
         return count >= 1;

@@ -50,4 +50,14 @@
             for update
         </if>
     </select>
+
+    <select id="getFirstServingPositionGe" resultMap="QueueServingPosition">
+        select
+            *
+        from
+            queue_serving_position
+        where
+            queue_id = #{queueId} and serving_position >= #{position}
+        order by issued_time asc limit 0, 1
+    </select>
 </mapper>

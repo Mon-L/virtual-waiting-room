@@ -17,6 +17,7 @@
 
 package cn.zcn.virtual.waiting.room.script;
 
+import static cn.zcn.virtual.waiting.room.utils.RedisKeyUtils.getQueueServingRequests;
 import static cn.zcn.virtual.waiting.room.utils.RedisKeyUtils.getQueueWaitingNumKey;
 
 import cn.zcn.virtual.waiting.room.exception.WaitingRoomException;
@@ -37,9 +38,11 @@ public class DequeueScript extends BaseScript {
         return "scripts/dequeue.lua";
     }
 
-    public void execute(RedisTemplate<String, Object> redisTemplate, String queueId) throws WaitingRoomException {
+    public void execute(
+            RedisTemplate<String, Object> redisTemplate, String queueId, String requestId, long tokenExpiredTime)
+            throws WaitingRoomException {
         RedisScript<Void> redisScript = getRedisScript(Void.class);
-        List<String> keys = RedisKeyUtils.joinKeys(getQueueWaitingNumKey(queueId));
-        redisTemplate.execute(redisScript, keys);
+        List<String> keys = RedisKeyUtils.joinKeys(getQueueServingRequests(queueId), getQueueWaitingNumKey(queueId));
+        redisTemplate.execute(redisScript, keys, requestId, tokenExpiredTime);
     }
 }
