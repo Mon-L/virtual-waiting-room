@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.zcn.virtual.waiting.room.infrastructure.repository.QueueServingPositionMapper">
+    <resultMap id="QueueServingPosition" type="QueueServingPositionPO">
+        <id column="id" property="id" javaType="int"/>
+        <result column="queue_id" property="queueId" javaType="string"/>
+        <result column="serving_position" property="servingPosition" javaType="long"/>
+        <result column="issued_time" property="issuedTime" javaType="java.util.Date"/>
+    </resultMap>
+
+    <sql id="columns">
+        id,
+        <include refid="columnsNoId"/>
+    </sql>
+
+    <sql id="columnsNoId">
+        queue_id,
+        serving_position,
+        issued_time
+    </sql>
+
+    <insert id="add" parameterType="QueueServingPositionPO" useGeneratedKeys="true" keyProperty="id">
+        insert queue_serving_position(
+            <include refid="columnsNoId"/>
+        ) values (
+            #{queueId},
+            #{servingPosition},
+            #{issuedTime}
+        )
+    </insert>
+
+    <select id="getLatestPositionByQueueId" resultMap="QueueServingPosition">
+        select
+            <include refid="columns"/>
+        from
+            queue_serving_position
+        where
+            queue_id = #{queueId}
+        order by
+            issued_time desc limit 0, 1
+    </select>
+
+    <select id="getClosestServingPositionGe" resultMap="QueueServingPosition">
+        select
+            *
+        from
+            queue_serving_position
+        where
+            queue_id = #{queueId} and serving_position >= #{position}
+        order by issued_time asc limit 0, 1
+    </select>
+</mapper>
