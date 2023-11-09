@@ -53,31 +53,31 @@ public class RequestPosition implements Serializable {
         return status == RequestStatus.INCOMPLETE;
     }
 
+    public boolean isCompleted() {
+        return status == RequestStatus.COMPLETED;
+    }
+
     public boolean isProcessed() {
         return queuePosition != null;
     }
 
     public boolean canBeServed(Long latestServingPosition) {
-        return queuePosition != null && latestServingPosition != null && latestServingPosition >= queuePosition;
+        return isProcessed() && latestServingPosition != null && latestServingPosition >= queuePosition;
     }
 
-    public boolean isExpired(int positionExpirySecond, Date closestServingPositionIssuedTime) {
-        long tiq;
+    public long getExpiredTime(int positionExpirySecond, Date closestServingPositionIssuedTime) {
+        Date start;
         if (canServedWhenEntry) {
-            tiq = dateDiff(entryTime, new Date());
+            start = entryTime;
         } else {
-            tiq = dateDiff(closestServingPositionIssuedTime, new Date());
+            start = closestServingPositionIssuedTime;
         }
 
-        return tiq >= positionExpirySecond * 1000L;
+        return start.getTime() + positionExpirySecond * 1000L;
     }
 
     private static String generateRequestId() {
         return UUID.randomUUID().toString().replace("-", "");
-    }
-
-    private long dateDiff(Date date1, Date date2) {
-        return date2.getTime() - date1.getTime();
     }
 
     public Integer getId() {

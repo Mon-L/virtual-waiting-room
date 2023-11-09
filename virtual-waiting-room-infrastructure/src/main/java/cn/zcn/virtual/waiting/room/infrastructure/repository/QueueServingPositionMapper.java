@@ -28,7 +28,4 @@ public interface QueueServingPositionMapper {
     void add(QueueServingPositionPO servingPos);
 
     QueueServingPositionPO getLatestPositionByQueueId(@Param("queueId") String queueId);
-
-    QueueServingPositionPO getClosestServingPositionGe(
-            @Param("queueId") String queueId, @Param("position") long position);
 }

@@ -29,7 +29,7 @@
         <nimbusds.version>9.21</nimbusds.version>
         <xxl.job.version>2.4.0</xxl.job.version>
         <org.mapstruct.version>1.5.5.Final</org.mapstruct.version>
-        <redisson.version>2.15.2</redisson.version>
+        <redisson.version>3.15.6</redisson.version>
     </properties>
 
     <dependencyManagement>

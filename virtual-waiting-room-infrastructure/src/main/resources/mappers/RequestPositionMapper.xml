@@ -67,6 +67,6 @@
         set
             `status` = #{newStatus}
         where
-            `id` = #{id} and `status` = #{oldStatus}
+           `request_id` = #{requestId} and `status` = #{oldStatus}
     </update>
 </mapper>

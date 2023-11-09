@@ -22,6 +22,7 @@ import cn.zcn.virtual.waiting.room.app.utils.DistributedLock;
 import cn.zcn.virtual.waiting.room.client.api.QueueService;
 import cn.zcn.virtual.waiting.room.client.dto.data.AccessTokenDTO;
 import cn.zcn.virtual.waiting.room.domain.ability.QueueAbility;
+import cn.zcn.virtual.waiting.room.domain.ability.RequestAbility;
 import cn.zcn.virtual.waiting.room.domain.exception.*;
 import cn.zcn.virtual.waiting.room.domain.gateway.cache.CacheGateway;
 import cn.zcn.virtual.waiting.room.domain.gateway.repository.AccessTokenGateway;
@@ -44,6 +45,9 @@ public class QueueServiceImpl implements QueueService {
 
     @Resource
     private QueueAbility queueAbility;
+
+    @Resource
+    private RequestAbility requestAbility;
 
     @Resource
     private DistributedLock distributedLock;
@@ -90,6 +94,7 @@ public class QueueServiceImpl implements QueueService {
 
             // 更新缓存
             cacheGateway.increaseServingPosition(newQueueServingPos);
+
             return newServingPos;
         } finally {
             distributedLock.unlock(lockKey);
@@ -138,12 +143,11 @@ public class QueueServiceImpl implements QueueService {
         Queue queue = queueAbility.checkAndGet(queueId);
         RequestPosition requestPosition = requestPositionGateway.getByQueueIdAndRequestId(queueId, requestId);
         if (requestPosition == null) {
-            throw new InvalidRequestIdException("Request cant be found. RequestId:{}", requestId);
+            throw new InvalidRequestIdException("Request cant be found.");
         }
 
         if (!requestPosition.isProcessed()) {
-            throw new RequestNotProcessedException(
-                    "Request has not been processed. RequestId:{}", requestPosition.getRequestId());
+            throw new RequestNotProcessedException("Request has not been processed.");
         }
 
         // 检查Request状态，防止重复获取令牌
@@ -154,33 +158,30 @@ public class QueueServiceImpl implements QueueService {
                     requestPosition.getStatus().name());
         }
 
-        QueueServingPosition closestServingPosition =
-                queueServingPositionGateway.getClosestServingPositionGe(queueId, requestPosition.getQueuePosition());
-
-        if (closestServingPosition == null
-                || !requestPosition.canBeServed(closestServingPosition.getServingPosition())) {
-            throw new RequestNotServedException(
-                    "Request not being served. QueueId:{}, RequestId:{}.", queueId, requestPosition.getQueuePosition());
+        Long closestServingPositionIssuedTime =
+                cacheGateway.getIssuedTimeByClosestServingPosition(queueId, requestPosition.getQueuePosition());
+        if (!requestPosition.canBeServed(closestServingPositionIssuedTime)) {
+            throw new RequestNotServedException("Request not being served.");
         }
 
-        if (queue.getEnableQueuePositionExpiry()
-                && requestPosition.isExpired(queue.getPositionExpirySecond(), closestServingPosition.getIssuedTime())) {
-            throw new RequestExpiredException("Request is expired. RequestId:{}.", requestPosition.getRequestId());
+        // 计算是否过期
+        if (requestAbility.checkIfExpired(requestPosition, queue)) {
+            throw new RequestExpiredException("Request is expired.");
         }
 
         // 生成访问令牌
         AccessToken accessToken = AccessToken.create(
                 queueId, requestId, requestPosition.getQueuePosition(), queue.getTokenValiditySecond());
 
-        // 离开排队队列
-        cacheGateway.dequeue(queueId, requestId, accessToken.getExpiredTime());
+        // 更新可服务的Request的数量
+        cacheGateway.increaseServingRequestNum(queueId, requestId, accessToken.getExpiredTime());
 
         transactionTemplate.executeWithoutResult(transactionStatus -> {
             // 更新Request状态
             boolean success = requestPositionGateway.changeRequestStatus(
-                    requestPosition.getId(), RequestStatus.INCOMPLETE, RequestStatus.COMPLETED);
+                    requestPosition.getRequestId(), RequestStatus.INCOMPLETE, RequestStatus.COMPLETED);
             if (!success) {
-                throw new WaitingRoomException("Failed to change request status. RequestId:{}", requestId);
+                throw new WaitingRoomException("Failed to change request status.");
             }
 
             // 保存访问令牌

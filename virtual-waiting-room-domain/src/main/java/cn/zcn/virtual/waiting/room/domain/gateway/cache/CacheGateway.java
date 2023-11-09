@@ -18,6 +18,7 @@
 package cn.zcn.virtual.waiting.room.domain.gateway.cache;
 
 import cn.zcn.virtual.waiting.room.domain.model.entity.QueueServingPosition;
+
 import java.util.Date;
 
 /**
@@ -25,15 +26,21 @@ import java.util.Date;
  */
 public interface CacheGateway {
 
+    long getLatestServingPosition(String queueId);
+
     void increaseServingPosition(QueueServingPosition queueServingPosition);
+
+    Long getIssuedTimeByClosestServingPosition(String queueId, long queuePosition);
 
     void removeServingRequest(String queueId, String requestId);
 
-    void dequeue(String queueId, String requestId, Date accessTokenExpiredTime);
+    void setMaxExpiredPosition(String queueId, long position);
 
-    long getServingRequestNum(String queueId, Date after);
+    Long getMaxExpiredPosition(String queueId);
 
-    long getLatestServingPosition(String queueId);
+    void increaseServingRequestNum(String queueId, String requestId, Date accessTokenExpiredTime);
+
+    long getServingRequestNum(String queueId, Date before);
 
     int getWaitingNum(String queueId);
 

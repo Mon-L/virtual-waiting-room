@@ -38,6 +38,11 @@ public class RedisKeyUtils {
     public static final String REQUEST_NAME = "request";
 
     /**
+     * String。 最大已过期位置。
+     */
+    public static final String QUEUE_MAX_EXPIRED_POSITION = "queue:max.expired.pos:{}";
+
+    /**
      * String。等候室发布的可服务的位置的列表。
      */
     public static final String QUEUE_ISSUED_SERVING_POSITIONS = "queue:issued.serving.positions:{}";
@@ -71,6 +76,10 @@ public class RedisKeyUtils {
 
     public static String getQueueIssuedServingPosition(String queueId) {
         return formatKey(QUEUE_ISSUED_SERVING_POSITIONS, queueId);
+    }
+
+    public static String getQueueMaxExpiredPositionKey(String queueId) {
+        return formatKey(QUEUE_MAX_EXPIRED_POSITION, queueId);
     }
 
     private static String formatKey(String pattern, String... args) {

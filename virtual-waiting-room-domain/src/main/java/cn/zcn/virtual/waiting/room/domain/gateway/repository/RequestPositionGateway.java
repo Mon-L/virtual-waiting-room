@@ -31,5 +31,5 @@ public interface RequestPositionGateway {
 
     RequestPosition getByQueueIdAndRequestId(String queueId, String requestId);
 
-    boolean changeRequestStatus(int id, RequestStatus oldStatus, RequestStatus newStatus);
+    boolean changeRequestStatus(String requestId, RequestStatus oldStatus, RequestStatus newStatus);
 }

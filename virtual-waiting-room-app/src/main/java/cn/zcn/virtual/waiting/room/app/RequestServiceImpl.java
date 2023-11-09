@@ -19,13 +19,18 @@ package cn.zcn.virtual.waiting.room.app;
 
 import cn.zcn.virtual.waiting.room.client.api.RequestService;
 import cn.zcn.virtual.waiting.room.domain.ability.QueueAbility;
+import cn.zcn.virtual.waiting.room.domain.ability.RequestAbility;
 import cn.zcn.virtual.waiting.room.domain.exception.InvalidRequestIdException;
+import cn.zcn.virtual.waiting.room.domain.exception.RequestExpiredException;
 import cn.zcn.virtual.waiting.room.domain.exception.RequestNotProcessedException;
 import cn.zcn.virtual.waiting.room.domain.gateway.mq.MqGateway;
 import cn.zcn.virtual.waiting.room.domain.gateway.repository.RequestPositionGateway;
+import cn.zcn.virtual.waiting.room.domain.model.entity.Queue;
 import cn.zcn.virtual.waiting.room.domain.model.entity.RequestPosition;
 import cn.zcn.virtual.waiting.room.domain.model.event.AssignRequestIdEvent;
 import javax.annotation.Resource;
+
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -39,6 +44,9 @@ public class RequestServiceImpl implements RequestService {
 
     @Resource
     private QueueAbility queueAbility;
+
+    @Resource
+    private RequestAbility requestAbility;
 
     @Resource
     private RequestPositionGateway requestPositionGateway;
@@ -64,11 +72,20 @@ public class RequestServiceImpl implements RequestService {
             throws InvalidRequestIdException, RequestNotProcessedException {
         RequestPosition requestPosition = requestPositionGateway.getByQueueIdAndRequestId(queueId, requestId);
         if (requestPosition == null) {
-            throw new InvalidRequestIdException("Request cant be found. RequestId:{}", requestId);
+            throw new InvalidRequestIdException("Request cant be found.");
         }
 
         if (!requestPosition.isProcessed()) {
-            throw new RequestNotProcessedException("Request has not been processed. RequestId:{}", requestId);
+            throw new RequestNotProcessedException("Request has not been processed.");
+        }
+
+        if (requestPosition.isCompleted()) {
+            return requestPosition.getQueuePosition();
+        }
+
+        Queue queue = queueAbility.checkAndGet(queueId);
+        if (requestAbility.checkIfExpired(requestPosition, queue)) {
+            throw new RequestExpiredException("Request is expired.");
         }
 
         return requestPosition.getQueuePosition();

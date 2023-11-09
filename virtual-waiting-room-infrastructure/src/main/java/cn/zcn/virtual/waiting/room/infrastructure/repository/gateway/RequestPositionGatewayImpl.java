@@ -24,10 +24,11 @@ import cn.zcn.virtual.waiting.room.domain.utils.RedisKeyUtils;
 import cn.zcn.virtual.waiting.room.infrastructure.repository.RequestPositionMapper;
 import cn.zcn.virtual.waiting.room.infrastructure.repository.converter.RequestPositionConverter;
 import cn.zcn.virtual.waiting.room.infrastructure.repository.po.RequestPositionPO;
-import javax.annotation.Resource;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
+
+import javax.annotation.Resource;
 
 /**
  * @author zicung
@@ -67,8 +68,9 @@ public class RequestPositionGatewayImpl implements RequestPositionGateway {
     }
 
     @Override
-    public boolean changeRequestStatus(int id, RequestStatus oldStatus, RequestStatus newStatus) {
-        int count = requestPositionMapper.changeRequestStatus(id, oldStatus, newStatus);
+    @CacheEvict(cacheNames = RedisKeyUtils.REQUEST_NAME, condition = "#result == true ", key = "#requestId")
+    public boolean changeRequestStatus(String requestId, RequestStatus oldStatus, RequestStatus newStatus) {
+        int count = requestPositionMapper.changeRequestStatus(requestId, oldStatus, newStatus);
         return count > 0;
     }
 }

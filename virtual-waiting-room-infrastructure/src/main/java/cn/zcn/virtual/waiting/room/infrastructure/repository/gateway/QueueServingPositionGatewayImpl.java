@@ -46,10 +46,4 @@ public class QueueServingPositionGatewayImpl implements QueueServingPositionGate
         QueueServingPositionPO po = queueServingPositionMapper.getLatestPositionByQueueId(queueId);
         return po != null ? QueueServingPositionConverter.INSTANCE.poToEntity(po) : null;
     }
-
-    @Override
-    public QueueServingPosition getClosestServingPositionGe(String queueId, long queuePosition) {
-        QueueServingPositionPO po = queueServingPositionMapper.getClosestServingPositionGe(queueId, queuePosition);
-        return po != null ? QueueServingPositionConverter.INSTANCE.poToEntity(po) : null;
-    }
 }

@@ -27,6 +27,4 @@ public interface QueueServingPositionGateway {
     QueueServingPosition add(QueueServingPosition queueServingPosition);
 
     QueueServingPosition getLatestPositionByQueueId(String queueId);
-
-    QueueServingPosition getClosestServingPositionGe(String queueId, long queuePosition);
 }
