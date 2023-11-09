@@ -17,8 +17,6 @@
 
 package cn.zcn.virtual.waiting.room.infrastructure.configuration;
 
-import cn.zcn.virtual.waiting.room.infrastructure.redis.BaseScript;
-import cn.zcn.virtual.waiting.room.infrastructure.redis.LuaScriptLoader;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -28,7 +26,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import java.util.List;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -43,13 +40,6 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @Configuration
 @MapperScan("cn.zcn.virtual.waiting.room.infrastructure.repository")
 public class WaitingRoomConfiguration {
-
-    @Bean
-    public LuaScriptLoader scriptLoader(List<BaseScript> scripts) {
-        LuaScriptLoader scriptLoader = new LuaScriptLoader();
-        scriptLoader.init(scripts);
-        return scriptLoader;
-    }
 
     @Bean
     public RedisTemplate<Object, Object> redisTemplate(RedisConnectionFactory redisConnectionFactory) {

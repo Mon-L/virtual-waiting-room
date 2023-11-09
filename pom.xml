@@ -27,7 +27,6 @@
         <pagehelper.version>1.4.6</pagehelper.version>
         <rocketmq.version>2.2.3</rocketmq.version>
         <nimbusds.version>9.21</nimbusds.version>
-        <antlr4.version>4.11.1</antlr4.version>
         <xxl.job.version>2.4.0</xxl.job.version>
         <org.mapstruct.version>1.5.5.Final</org.mapstruct.version>
         <redisson.version>2.15.2</redisson.version>
@@ -95,11 +94,6 @@
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
                 <version>${nimbusds.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.antlr</groupId>
-                <artifactId>antlr4-runtime</artifactId>
-                <version>${antlr4.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.xuxueli</groupId>

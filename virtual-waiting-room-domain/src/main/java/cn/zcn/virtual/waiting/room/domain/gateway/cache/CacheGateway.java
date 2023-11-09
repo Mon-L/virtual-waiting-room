@@ -31,7 +31,7 @@ public interface CacheGateway {
 
     void dequeue(String queueId, String requestId, Date accessTokenExpiredTime);
 
-    long getActiveTokenNum(String queueId, Date after);
+    long getServingRequestNum(String queueId, Date after);
 
     long getLatestServingPosition(String queueId);
 

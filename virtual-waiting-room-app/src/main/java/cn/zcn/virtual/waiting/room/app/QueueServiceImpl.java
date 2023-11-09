@@ -28,11 +28,11 @@ import cn.zcn.virtual.waiting.room.domain.gateway.repository.AccessTokenGateway;
 import cn.zcn.virtual.waiting.room.domain.gateway.repository.QueueServingPositionGateway;
 import cn.zcn.virtual.waiting.room.domain.gateway.repository.RequestPositionGateway;
 import cn.zcn.virtual.waiting.room.domain.model.entity.*;
-import org.springframework.stereotype.Service;
-
-import javax.annotation.Resource;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Resource;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * @author zicung
@@ -60,6 +60,9 @@ public class QueueServiceImpl implements QueueService {
     @Resource
     private QueueServingPositionGateway queueServingPositionGateway;
 
+    @Resource
+    private TransactionTemplate transactionTemplate;
+
     @Override
     public long increaseServingPosition(String queueId, int incrementBy) {
         queueAbility.checkAndGet(queueId);
@@ -85,7 +88,7 @@ public class QueueServiceImpl implements QueueService {
             newQueueServingPos.setServingPosition(newServingPos);
             queueServingPositionGateway.add(newQueueServingPos);
 
-            //更新缓存
+            // 更新缓存
             cacheGateway.increaseServingPosition(newQueueServingPos);
             return newServingPos;
         } finally {
@@ -108,17 +111,14 @@ public class QueueServiceImpl implements QueueService {
             throw new WaitingRoomException("The status has already been set {}", newStatus.name());
         }
 
-        boolean changed = accessTokenGateway.changeStatus(queueId, requestId, accessToken.getStatus(), newStatus);
-        if (changed) {
-            // 把Request从可服务的列表中移除
-            cacheGateway.removeServingRequest(queueId, requestId);
-        }
+        cacheGateway.removeServingRequest(queueId, requestId);
+        accessTokenGateway.changeStatus(queueId, requestId, accessToken.getStatus(), newStatus);
     }
 
     @Override
     public long getActiveTokenNum(String queueId, Date after) {
         queueAbility.checkAndGet(queueId);
-        return cacheGateway.getActiveTokenNum(queueId, after);
+        return cacheGateway.getServingRequestNum(queueId, after);
     }
 
     @Override
@@ -172,18 +172,21 @@ public class QueueServiceImpl implements QueueService {
         AccessToken accessToken = AccessToken.create(
                 queueId, requestId, requestPosition.getQueuePosition(), queue.getTokenValiditySecond());
 
-        // 更新Request状态
-        boolean success = requestPositionGateway.changeRequestStatus(
-                requestPosition.getId(), RequestStatus.INCOMPLETE, RequestStatus.COMPLETED);
-        if (!success) {
-            throw new WaitingRoomException("Failed to change request status. RequestId:{}", requestId);
-        }
-
         // 离开排队队列
         cacheGateway.dequeue(queueId, requestId, accessToken.getExpiredTime());
 
-        // 保存访问令牌
-        accessTokenGateway.add(accessToken);
+        transactionTemplate.executeWithoutResult(transactionStatus -> {
+            // 更新Request状态
+            boolean success = requestPositionGateway.changeRequestStatus(
+                    requestPosition.getId(), RequestStatus.INCOMPLETE, RequestStatus.COMPLETED);
+            if (!success) {
+                throw new WaitingRoomException("Failed to change request status. RequestId:{}", requestId);
+            }
+
+            // 保存访问令牌
+            accessTokenGateway.add(accessToken);
+        });
+
         return AccessTokenAssembler.INSTANCE.toAccessTokenDTO(accessToken);
     }
 }

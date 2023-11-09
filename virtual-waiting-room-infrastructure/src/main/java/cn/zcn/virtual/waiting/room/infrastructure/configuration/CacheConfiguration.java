@@ -41,7 +41,7 @@ public class CacheConfiguration {
     private RedissonClient redissonClient;
 
     @Bean
-    CacheManager cacheManager() {
+    public CacheManager cacheManager() {
         return new RedissonSpringCacheManager(redissonClient);
     }
 
