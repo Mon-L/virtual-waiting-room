@@ -29,11 +29,12 @@ import cn.zcn.virtual.waiting.room.domain.gateway.repository.AccessTokenGateway;
 import cn.zcn.virtual.waiting.room.domain.gateway.repository.QueueServingPositionGateway;
 import cn.zcn.virtual.waiting.room.domain.gateway.repository.RequestPositionGateway;
 import cn.zcn.virtual.waiting.room.domain.model.entity.*;
-import java.util.Date;
-import java.util.concurrent.TimeUnit;
-import javax.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+
+import javax.annotation.Resource;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author zicung
@@ -152,7 +153,7 @@ public class QueueServiceImpl implements QueueService {
 
         // 检查Request状态，防止重复获取令牌
         if (!requestPosition.canIssueAccessToken()) {
-            throw new WaitingRoomException(
+            throw new InvalidRequestIdException(
                     "Excepted request status {}, but got {}.",
                     RequestStatus.INCOMPLETE.name(),
                     requestPosition.getStatus().name());

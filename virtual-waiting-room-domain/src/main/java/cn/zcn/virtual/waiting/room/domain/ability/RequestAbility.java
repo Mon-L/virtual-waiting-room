@@ -20,10 +20,9 @@ package cn.zcn.virtual.waiting.room.domain.ability;
 import cn.zcn.virtual.waiting.room.domain.gateway.cache.CacheGateway;
 import cn.zcn.virtual.waiting.room.domain.model.entity.Queue;
 import cn.zcn.virtual.waiting.room.domain.model.entity.RequestPosition;
-import org.springframework.stereotype.Component;
-
-import javax.annotation.Resource;
 import java.util.Date;
+import javax.annotation.Resource;
+import org.springframework.stereotype.Component;
 
 /**
  * @author zicung

@@ -17,18 +17,21 @@
 
 package cn.zcn.virtual.waiting.room.infrastructure.configuration;
 
-import java.time.Duration;
-import javax.annotation.Resource;
-import org.redisson.api.RedissonClient;
-import org.redisson.spring.cache.RedissonSpringCacheManager;
+import cn.zcn.virtual.waiting.room.domain.utils.RedisKeyUtils;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
+import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author zicung
@@ -37,24 +40,34 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @EnableCaching
 public class CacheConfiguration {
 
-    @Resource
-    private RedissonClient redissonClient;
-
     @Bean
-    public CacheManager cacheManager() {
-        return new RedissonSpringCacheManager(redissonClient);
+    public CacheManager cacheManager(
+            RedisConnectionFactory redisConnectionFactory,
+            Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer) {
+        Map<String, RedisCacheConfiguration> configurations = new HashMap<>();
+
+        configurations.put(
+                RedisKeyUtils.REQUEST_NAME,
+                createBaseCacheConfiguration(jackson2JsonRedisSerializer, Duration.ofMinutes(10)));
+        configurations.put(
+                RedisKeyUtils.QUEUE_NAME,
+                createBaseCacheConfiguration(jackson2JsonRedisSerializer, Duration.ofMinutes(10)));
+
+        return RedisCacheManager.builder(redisConnectionFactory)
+                .initialCacheNames(configurations.keySet())
+                .withInitialCacheConfigurations(configurations)
+                .build();
     }
 
-    @Bean
-    public RedisCacheConfiguration redisCacheConfiguration(
-            Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer) {
+    private RedisCacheConfiguration createBaseCacheConfiguration(
+            Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer, Duration timeout) {
         return RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(jackson2JsonRedisSerializer))
                 .disableCachingNullValues()
-                .entryTtl(Duration.ofMinutes(10))
+                .entryTtl(timeout)
                 .computePrefixWith(name -> name + ":");
     }
 }

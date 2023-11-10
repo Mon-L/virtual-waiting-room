@@ -23,14 +23,13 @@ import cn.zcn.virtual.waiting.room.domain.ability.RequestAbility;
 import cn.zcn.virtual.waiting.room.domain.exception.InvalidRequestIdException;
 import cn.zcn.virtual.waiting.room.domain.exception.RequestExpiredException;
 import cn.zcn.virtual.waiting.room.domain.exception.RequestNotProcessedException;
+import cn.zcn.virtual.waiting.room.domain.gateway.cache.CacheGateway;
 import cn.zcn.virtual.waiting.room.domain.gateway.mq.MqGateway;
 import cn.zcn.virtual.waiting.room.domain.gateway.repository.RequestPositionGateway;
 import cn.zcn.virtual.waiting.room.domain.model.entity.Queue;
 import cn.zcn.virtual.waiting.room.domain.model.entity.RequestPosition;
 import cn.zcn.virtual.waiting.room.domain.model.event.AssignRequestIdEvent;
 import javax.annotation.Resource;
-
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -41,6 +40,9 @@ public class RequestServiceImpl implements RequestService {
 
     @Resource
     private MqGateway mqGateway;
+
+    @Resource
+    private CacheGateway cacheGateway;
 
     @Resource
     private QueueAbility queueAbility;
@@ -58,8 +60,8 @@ public class RequestServiceImpl implements RequestService {
         // 生成RequestId
         RequestPosition requestPosition = RequestPosition.create(queueId);
 
-        // 保存RequestPosition
-        requestPositionGateway.add(requestPosition);
+        // 保存RequestPosition到缓存
+        cacheGateway.addTransientRequestPosition(requestPosition);
 
         // 发送到MQ
         mqGateway.sendAssignRequest(

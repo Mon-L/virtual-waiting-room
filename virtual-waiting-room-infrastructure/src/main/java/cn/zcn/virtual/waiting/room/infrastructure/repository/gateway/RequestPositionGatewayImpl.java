@@ -24,11 +24,10 @@ import cn.zcn.virtual.waiting.room.domain.utils.RedisKeyUtils;
 import cn.zcn.virtual.waiting.room.infrastructure.repository.RequestPositionMapper;
 import cn.zcn.virtual.waiting.room.infrastructure.repository.converter.RequestPositionConverter;
 import cn.zcn.virtual.waiting.room.infrastructure.repository.po.RequestPositionPO;
+import javax.annotation.Resource;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
-
-import javax.annotation.Resource;
 
 /**
  * @author zicung

@@ -18,13 +18,19 @@
 package cn.zcn.virtual.waiting.room.domain.gateway.cache;
 
 import cn.zcn.virtual.waiting.room.domain.model.entity.QueueServingPosition;
-
+import cn.zcn.virtual.waiting.room.domain.model.entity.RequestPosition;
 import java.util.Date;
 
 /**
  * @author zicung
  */
 public interface CacheGateway {
+
+    void addTransientRequestPosition(RequestPosition requestPosition);
+
+    RequestPosition getTransientRequestPosition(String requestId);
+
+    void deleteTransientRequestPosition(String requestId);
 
     long getLatestServingPosition(String queueId);
 
@@ -44,5 +50,5 @@ public interface CacheGateway {
 
     int getWaitingNum(String queueId);
 
-    long assignQueuePosition(String queueId);
+    long nextQueuePosition(String queueId);
 }

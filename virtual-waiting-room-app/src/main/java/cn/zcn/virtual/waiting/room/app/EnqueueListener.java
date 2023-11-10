@@ -44,10 +44,10 @@ public class EnqueueListener implements RocketMQListener<AssignRequestIdEvent> {
     private QueueAbility queueAbility;
 
     @Resource
-    private RequestPositionGateway requestPositionGateway;
+    private CacheGateway cacheGateway;
 
     @Resource
-    private CacheGateway cacheGateway;
+    private RequestPositionGateway requestPositionGateway;
 
     @Override
     public void onMessage(AssignRequestIdEvent event) {
@@ -56,20 +56,19 @@ public class EnqueueListener implements RocketMQListener<AssignRequestIdEvent> {
 
         queueAbility.checkAndGet(queueId);
 
-        // 获取RequestPosition
-        RequestPosition requestPosition = requestPositionGateway.getByQueueIdAndRequestId(queueId, requestId);
+        RequestPosition requestPosition = cacheGateway.getTransientRequestPosition(requestId);
         if (requestPosition == null) {
             return;
         }
 
         // 进入等候室排队，并获取排队位置
-        long position = cacheGateway.assignQueuePosition(queueId);
+        long position = cacheGateway.nextQueuePosition(queueId);
 
         // 获取等候室最新的servingPosition
         long latestQueueServingPosition = cacheGateway.getLatestServingPosition(event.getQueueId());
         requestPosition.assignQueuePosition(position, latestQueueServingPosition);
 
-        // 写入数据库
-        requestPositionGateway.update(requestPosition);
+        cacheGateway.deleteTransientRequestPosition(requestId);
+        requestPositionGateway.add(requestPosition);
     }
 }

@@ -19,7 +19,9 @@ package cn.zcn.virtual.waiting.room.infrastructure.redis;
 
 import cn.zcn.virtual.waiting.room.domain.gateway.cache.CacheGateway;
 import cn.zcn.virtual.waiting.room.domain.model.entity.QueueServingPosition;
+import cn.zcn.virtual.waiting.room.domain.model.entity.RequestPosition;
 import cn.zcn.virtual.waiting.room.domain.utils.RedisKeyUtils;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -40,6 +42,24 @@ public class CacheGatewayImpl implements CacheGateway {
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
 
+    @Resource
+    private CacheManager cacheManager;
+
+    @Override
+    public void addTransientRequestPosition(RequestPosition requestPosition) {
+        cacheManager.getCache(REQUEST_NAME).put(requestPosition.getRequestId(), requestPosition);
+    }
+
+    @Override
+    public RequestPosition getTransientRequestPosition(String requestId) {
+        return cacheManager.getCache(REQUEST_NAME).get(requestId, RequestPosition.class);
+    }
+
+    @Override
+    public void deleteTransientRequestPosition(String requestId) {
+        cacheManager.getCache(REQUEST_NAME).evict(requestId);
+    }
+
     @Override
     public void setMaxExpiredPosition(String queueId, long position) {
         String script = "local exist = tonumber(redis.call('get', KEYS[1]));"
@@ -55,7 +75,7 @@ public class CacheGatewayImpl implements CacheGateway {
     }
 
     @Override
-    public long assignQueuePosition(String queueId) {
+    public long nextQueuePosition(String queueId) {
         String script = "redis.call('INCR', KEYS[1]); " + // 增加等候室等待人数
                 "return redis.call('INCR', KEYS[2]);"; // 递增并返回等候室排队位置
 
@@ -153,6 +173,7 @@ public class CacheGatewayImpl implements CacheGateway {
         } else if (obj instanceof Number) {
             return ((Number) obj).longValue();
         }
-        throw new IllegalArgumentException("Expected Long but was " + obj.getClass().getName());
+        throw new IllegalArgumentException(
+                "Expected Long but was " + obj.getClass().getName());
     }
 }
