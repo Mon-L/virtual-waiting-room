@@ -37,7 +37,7 @@ public class MqGatewayGatewayImpl implements MqGateway {
 
     @Override
     public void sendAssignRequest(AssignRequestIdEvent assignRequestIdEvent) {
-        SendResult sendResult = rocketMQTemplate.syncSend(TOPIC_ASSIGN_POS, assignRequestIdEvent);
+        SendResult sendResult = rocketMQTemplate.syncSend(AssignRequestIdEvent.DESTINATION, assignRequestIdEvent);
         if (sendResult.getSendStatus() != SendStatus.SEND_OK) {
             throw new WaitingRoomException("Failed to send AssignRequestIdEvent to MQ. SendStatus:"
                     + sendResult.getSendStatus().name());

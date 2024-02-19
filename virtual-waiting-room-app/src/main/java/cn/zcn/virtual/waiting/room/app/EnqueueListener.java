@@ -19,23 +19,21 @@ package cn.zcn.virtual.waiting.room.app;
 
 import cn.zcn.virtual.waiting.room.domain.ability.QueueAbility;
 import cn.zcn.virtual.waiting.room.domain.gateway.cache.CacheGateway;
-import cn.zcn.virtual.waiting.room.domain.gateway.mq.MqGateway;
-import cn.zcn.virtual.waiting.room.domain.gateway.repository.RequestPositionGateway;
 import cn.zcn.virtual.waiting.room.domain.model.entity.RequestPosition;
 import cn.zcn.virtual.waiting.room.domain.model.event.AssignRequestIdEvent;
 import javax.annotation.Resource;
 import org.apache.rocketmq.spring.annotation.MessageModel;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
 /**
  * @author zicung
  */
-@Service
+@Component
 @RocketMQMessageListener(
         consumerGroup = "virtual-waiting-room-consumer",
-        topic = MqGateway.TOPIC_ASSIGN_POS,
+        topic = AssignRequestIdEvent.DESTINATION,
         messageModel = MessageModel.CLUSTERING,
         maxReconsumeTimes = 2)
 public class EnqueueListener implements RocketMQListener<AssignRequestIdEvent> {
@@ -46,9 +44,6 @@ public class EnqueueListener implements RocketMQListener<AssignRequestIdEvent> {
     @Resource
     private CacheGateway cacheGateway;
 
-    @Resource
-    private RequestPositionGateway requestPositionGateway;
-
     @Override
     public void onMessage(AssignRequestIdEvent event) {
         String queueId = event.getQueueId();
@@ -56,7 +51,7 @@ public class EnqueueListener implements RocketMQListener<AssignRequestIdEvent> {
 
         queueAbility.checkAndGet(queueId);
 
-        RequestPosition requestPosition = cacheGateway.getTransientRequestPosition(requestId);
+        RequestPosition requestPosition = cacheGateway.getRequestPosition(requestId);
         if (requestPosition == null) {
             return;
         }
@@ -68,7 +63,7 @@ public class EnqueueListener implements RocketMQListener<AssignRequestIdEvent> {
         long latestQueueServingPosition = cacheGateway.getLatestServingPosition(event.getQueueId());
         requestPosition.assignQueuePosition(position, latestQueueServingPosition);
 
-        cacheGateway.deleteTransientRequestPosition(requestId);
-        requestPositionGateway.add(requestPosition);
+        // 更新RequestPosition
+        cacheGateway.saveRequestPosition(requestPosition);
     }
 }

@@ -23,7 +23,5 @@ import cn.zcn.virtual.waiting.room.domain.model.event.AssignRequestIdEvent;
  * @author zicung
  */
 public interface MqGateway {
-    String TOPIC_ASSIGN_POS = "assign-pos";
-
     void sendAssignRequest(AssignRequestIdEvent assignRequestIdEvent);
 }

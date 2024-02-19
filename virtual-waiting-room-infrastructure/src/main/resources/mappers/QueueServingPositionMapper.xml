@@ -39,4 +39,13 @@
         order by
             issued_time desc limit 0, 1
     </select>
+
+    <select id="getByQueueIdAndPosition" resultMap="QueueServingPosition">
+        select
+            <include refid="columns"/>
+        from
+            queue_serving_position
+        where
+            queue_id = #{queueId} and serving_position = #{position}
+    </select>
 </mapper>

@@ -26,11 +26,11 @@ import java.util.Date;
  */
 public interface CacheGateway {
 
-    void addTransientRequestPosition(RequestPosition requestPosition);
+    void saveRequestPosition(RequestPosition requestPosition);
 
-    RequestPosition getTransientRequestPosition(String requestId);
+    RequestPosition getRequestPosition(String requestId);
 
-    void deleteTransientRequestPosition(String requestId);
+    void deleteRequestPosition(String requestId);
 
     long getLatestServingPosition(String queueId);
 
@@ -44,7 +44,7 @@ public interface CacheGateway {
 
     Long getMaxExpiredPosition(String queueId);
 
-    void increaseServingRequestNum(String queueId, String requestId, Date accessTokenExpiredTime);
+    void addServingRequest(String queueId, String requestId, Date accessTokenExpiredTime);
 
     long getServingRequestNum(String queueId, Date before);
 

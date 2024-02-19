@@ -27,14 +27,11 @@ import cn.zcn.virtual.waiting.room.domain.exception.*;
 import cn.zcn.virtual.waiting.room.domain.gateway.cache.CacheGateway;
 import cn.zcn.virtual.waiting.room.domain.gateway.repository.AccessTokenGateway;
 import cn.zcn.virtual.waiting.room.domain.gateway.repository.QueueServingPositionGateway;
-import cn.zcn.virtual.waiting.room.domain.gateway.repository.RequestPositionGateway;
 import cn.zcn.virtual.waiting.room.domain.model.entity.*;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionTemplate;
-
-import javax.annotation.Resource;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Resource;
+import org.springframework.stereotype.Service;
 
 /**
  * @author zicung
@@ -57,16 +54,10 @@ public class QueueServiceImpl implements QueueService {
     private CacheGateway cacheGateway;
 
     @Resource
-    private RequestPositionGateway requestPositionGateway;
-
-    @Resource
     private AccessTokenGateway accessTokenGateway;
 
     @Resource
     private QueueServingPositionGateway queueServingPositionGateway;
-
-    @Resource
-    private TransactionTemplate transactionTemplate;
 
     @Override
     public long increaseServingPosition(String queueId, int incrementBy) {
@@ -91,11 +82,9 @@ public class QueueServiceImpl implements QueueService {
             newQueueServingPos.setQueueId(queueId);
             newQueueServingPos.setIssuedTime(issuedTime);
             newQueueServingPos.setServingPosition(newServingPos);
+
             queueServingPositionGateway.add(newQueueServingPos);
-
-            // 更新缓存
             cacheGateway.increaseServingPosition(newQueueServingPos);
-
             return newServingPos;
         } finally {
             distributedLock.unlock(lockKey);
@@ -142,7 +131,8 @@ public class QueueServiceImpl implements QueueService {
     @Override
     public AccessTokenDTO generateToken(String queueId, String requestId) {
         Queue queue = queueAbility.checkAndGet(queueId);
-        RequestPosition requestPosition = requestPositionGateway.getByQueueIdAndRequestId(queueId, requestId);
+
+        RequestPosition requestPosition = cacheGateway.getRequestPosition(requestId);
         if (requestPosition == null) {
             throw new InvalidRequestIdException("Request cant be found.");
         }
@@ -173,21 +163,15 @@ public class QueueServiceImpl implements QueueService {
         // 生成访问令牌
         AccessToken accessToken = AccessToken.create(
                 queueId, requestId, requestPosition.getQueuePosition(), queue.getTokenValiditySecond());
+        // 保存访问令牌
+        accessTokenGateway.add(accessToken);
 
         // 更新可服务的Request的数量
-        cacheGateway.increaseServingRequestNum(queueId, requestId, accessToken.getExpiredTime());
+        cacheGateway.addServingRequest(queueId, requestId, accessToken.getExpiredTime());
 
-        transactionTemplate.executeWithoutResult(transactionStatus -> {
-            // 更新Request状态
-            boolean success = requestPositionGateway.changeRequestStatus(
-                    requestPosition.getRequestId(), RequestStatus.INCOMPLETE, RequestStatus.COMPLETED);
-            if (!success) {
-                throw new WaitingRoomException("Failed to change request status.");
-            }
-
-            // 保存访问令牌
-            accessTokenGateway.add(accessToken);
-        });
+        // 更新RequestPosition
+        requestPosition.setStatus(RequestStatus.COMPLETED);
+        cacheGateway.saveRequestPosition(requestPosition);
 
         return AccessTokenAssembler.INSTANCE.toAccessTokenDTO(accessToken);
     }

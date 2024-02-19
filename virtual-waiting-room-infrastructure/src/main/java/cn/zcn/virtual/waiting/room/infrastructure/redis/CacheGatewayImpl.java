@@ -17,21 +17,20 @@
 
 package cn.zcn.virtual.waiting.room.infrastructure.redis;
 
+import static cn.zcn.virtual.waiting.room.domain.utils.RedisKeyUtils.*;
+
 import cn.zcn.virtual.waiting.room.domain.gateway.cache.CacheGateway;
 import cn.zcn.virtual.waiting.room.domain.model.entity.QueueServingPosition;
 import cn.zcn.virtual.waiting.room.domain.model.entity.RequestPosition;
 import cn.zcn.virtual.waiting.room.domain.utils.RedisKeyUtils;
+import java.util.Date;
+import java.util.Set;
+import javax.annotation.Resource;
 import org.springframework.cache.CacheManager;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
-
-import javax.annotation.Resource;
-import java.util.Date;
-import java.util.Set;
-
-import static cn.zcn.virtual.waiting.room.domain.utils.RedisKeyUtils.*;
 
 /**
  * @author zicung
@@ -46,17 +45,17 @@ public class CacheGatewayImpl implements CacheGateway {
     private CacheManager cacheManager;
 
     @Override
-    public void addTransientRequestPosition(RequestPosition requestPosition) {
+    public void saveRequestPosition(RequestPosition requestPosition) {
         cacheManager.getCache(REQUEST_NAME).put(requestPosition.getRequestId(), requestPosition);
     }
 
     @Override
-    public RequestPosition getTransientRequestPosition(String requestId) {
+    public RequestPosition getRequestPosition(String requestId) {
         return cacheManager.getCache(REQUEST_NAME).get(requestId, RequestPosition.class);
     }
 
     @Override
-    public void deleteTransientRequestPosition(String requestId) {
+    public void deleteRequestPosition(String requestId) {
         cacheManager.getCache(REQUEST_NAME).evict(requestId);
     }
 
@@ -87,7 +86,7 @@ public class CacheGatewayImpl implements CacheGateway {
     }
 
     @Override
-    public void increaseServingRequestNum(String queueId, String requestId, Date accessTokenExpiredTime) {
+    public void addServingRequest(String queueId, String requestId, Date accessTokenExpiredTime) {
         String script = "local waitingNum = tonumber(redis.call('get', KEYS[2])); "
                 + "if waitingNum ~= nil and waitingNum >=1 then "
                 + "    redis.call('DECR', KEYS[2]); " // 减少等候室等待人数

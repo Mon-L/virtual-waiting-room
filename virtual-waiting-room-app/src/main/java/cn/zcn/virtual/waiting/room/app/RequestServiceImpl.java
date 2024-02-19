@@ -25,7 +25,6 @@ import cn.zcn.virtual.waiting.room.domain.exception.RequestExpiredException;
 import cn.zcn.virtual.waiting.room.domain.exception.RequestNotProcessedException;
 import cn.zcn.virtual.waiting.room.domain.gateway.cache.CacheGateway;
 import cn.zcn.virtual.waiting.room.domain.gateway.mq.MqGateway;
-import cn.zcn.virtual.waiting.room.domain.gateway.repository.RequestPositionGateway;
 import cn.zcn.virtual.waiting.room.domain.model.entity.Queue;
 import cn.zcn.virtual.waiting.room.domain.model.entity.RequestPosition;
 import cn.zcn.virtual.waiting.room.domain.model.event.AssignRequestIdEvent;
@@ -50,9 +49,6 @@ public class RequestServiceImpl implements RequestService {
     @Resource
     private RequestAbility requestAbility;
 
-    @Resource
-    private RequestPositionGateway requestPositionGateway;
-
     @Override
     public String assignPosition(String queueId) {
         queueAbility.checkAndGet(queueId);
@@ -61,18 +57,20 @@ public class RequestServiceImpl implements RequestService {
         RequestPosition requestPosition = RequestPosition.create(queueId);
 
         // 保存RequestPosition到缓存
-        cacheGateway.addTransientRequestPosition(requestPosition);
+        cacheGateway.saveRequestPosition(requestPosition);
 
         // 发送到MQ
-        mqGateway.sendAssignRequest(
-                new AssignRequestIdEvent(queueId, requestPosition.getRequestId(), requestPosition.getCreateTime()));
+        AssignRequestIdEvent assignRequestIdEvent =
+                new AssignRequestIdEvent(queueId, requestPosition.getRequestId(), requestPosition.getCreateTime());
+        mqGateway.sendAssignRequest(assignRequestIdEvent);
+
         return requestPosition.getRequestId();
     }
 
     @Override
     public Long getRequestPosition(String queueId, String requestId)
             throws InvalidRequestIdException, RequestNotProcessedException {
-        RequestPosition requestPosition = requestPositionGateway.getByQueueIdAndRequestId(queueId, requestId);
+        RequestPosition requestPosition = cacheGateway.getRequestPosition(requestId);
         if (requestPosition == null) {
             throw new InvalidRequestIdException("Request cant be found.");
         }

@@ -23,6 +23,9 @@ import java.util.Date;
  * @author zicung
  */
 public class AssignRequestIdEvent {
+
+    public static final String DESTINATION = "assign-pos";
+
     private String queueId;
     private String requestId;
     private Date sendTime;
