@@ -46,9 +46,6 @@ public class CacheConfiguration {
         Map<String, RedisCacheConfiguration> configurations = new HashMap<>();
 
         configurations.put(
-                RedisKeyUtils.REQUEST_NAME,
-                createBaseCacheConfiguration(jackson2JsonRedisSerializer, Duration.ofMinutes(10)));
-        configurations.put(
                 RedisKeyUtils.QUEUE_NAME,
                 createBaseCacheConfiguration(jackson2JsonRedisSerializer, Duration.ofMinutes(10)));
 

@@ -79,10 +79,6 @@ public class RequestServiceImpl implements RequestService {
             throw new RequestNotProcessedException("Request has not been processed.");
         }
 
-        if (requestPosition.isCompleted()) {
-            return requestPosition.getQueuePosition();
-        }
-
         Queue queue = queueAbility.checkAndGet(queueId);
         if (requestAbility.checkIfExpired(requestPosition, queue)) {
             throw new RequestExpiredException("Request is expired.");

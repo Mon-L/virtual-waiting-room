@@ -19,7 +19,9 @@ package cn.zcn.virtual.waiting.room.domain.gateway.cache;
 
 import cn.zcn.virtual.waiting.room.domain.model.entity.QueueServingPosition;
 import cn.zcn.virtual.waiting.room.domain.model.entity.RequestPosition;
+import cn.zcn.virtual.waiting.room.domain.model.event.AssignRequestIdEvent;
 import java.util.Date;
+import java.util.List;
 
 /**
  * @author zicung
@@ -50,5 +52,5 @@ public interface CacheGateway {
 
     int getWaitingNum(String queueId);
 
-    long nextQueuePosition(String queueId);
+    void assignQueuePositions(List<AssignRequestIdEvent> events);
 }

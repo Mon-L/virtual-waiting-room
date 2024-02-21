@@ -35,7 +35,7 @@ public class RedisKeyUtils {
     /**
      * String。Request。
      */
-    public static final String REQUEST_NAME = "request";
+    public static final String REQUEST_NAME = "request:{}";
 
     /**
      * String。 最大已过期位置。
@@ -61,6 +61,10 @@ public class RedisKeyUtils {
      * ZSet。记录已可服务的requests。
      */
     private static final String QUEUE_SERVING_REQUESTS = "queue:serving.requests:{}";
+
+    public static String getRequest(String requestId) {
+        return formatKey(REQUEST_NAME, requestId);
+    }
 
     public static String getQueueLatestPosition(String queueId) {
         return formatKey(QUEUE_LATEST_POSITION, queueId);

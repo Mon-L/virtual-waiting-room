@@ -32,29 +32,13 @@ public class RequestPosition implements Serializable {
     private Date entryTime;
     private Boolean canServedWhenEntry = false;
     private Date createTime;
-    private RequestStatus status = RequestStatus.INCOMPLETE;
 
     public static RequestPosition create(String queueId) {
         RequestPosition requestPosition = new RequestPosition();
         requestPosition.setQueueId(queueId);
         requestPosition.setRequestId(generateRequestId());
         requestPosition.setCreateTime(new Date());
-        requestPosition.setStatus(RequestStatus.INCOMPLETE);
         return requestPosition;
-    }
-
-    public void assignQueuePosition(long position, long queueLatestServingPosition) {
-        setQueuePosition(position);
-        setEntryTime(new Date());
-        setCanServedWhenEntry(queueLatestServingPosition >= position);
-    }
-
-    public boolean canIssueAccessToken() {
-        return status == RequestStatus.INCOMPLETE;
-    }
-
-    public boolean isCompleted() {
-        return status == RequestStatus.COMPLETED;
     }
 
     public boolean isProcessed() {
@@ -134,13 +118,5 @@ public class RequestPosition implements Serializable {
 
     public void setCreateTime(Date createTime) {
         this.createTime = createTime;
-    }
-
-    public RequestStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(RequestStatus status) {
-        this.status = status;
     }
 }

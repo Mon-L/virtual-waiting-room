@@ -17,53 +17,40 @@
 
 package cn.zcn.virtual.waiting.room.app;
 
-import cn.zcn.virtual.waiting.room.domain.ability.QueueAbility;
 import cn.zcn.virtual.waiting.room.domain.gateway.cache.CacheGateway;
-import cn.zcn.virtual.waiting.room.domain.model.entity.RequestPosition;
 import cn.zcn.virtual.waiting.room.domain.model.event.AssignRequestIdEvent;
+import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.Resource;
-import org.apache.rocketmq.spring.annotation.MessageModel;
-import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
-import org.apache.rocketmq.spring.core.RocketMQListener;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 /**
  * @author zicung
  */
 @Component
-@RocketMQMessageListener(
-        consumerGroup = "virtual-waiting-room-consumer",
-        topic = AssignRequestIdEvent.DESTINATION,
-        messageModel = MessageModel.CLUSTERING,
-        maxReconsumeTimes = 2)
-public class EnqueueListener implements RocketMQListener<AssignRequestIdEvent> {
-
-    @Resource
-    private QueueAbility queueAbility;
+public class EnqueueListener {
 
     @Resource
     private CacheGateway cacheGateway;
 
-    @Override
-    public void onMessage(AssignRequestIdEvent event) {
-        String queueId = event.getQueueId();
-        String requestId = event.getRequestId();
-
-        queueAbility.checkAndGet(queueId);
-
-        RequestPosition requestPosition = cacheGateway.getRequestPosition(requestId);
-        if (requestPosition == null) {
-            return;
+    @KafkaListener(
+            id = "AssignRequestIdListener",
+            topics = AssignRequestIdEvent.TOPIC,
+            containerFactory = "batchKafkaFactory",
+            properties = {
+                ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG + "=100000",
+                ConsumerConfig.MAX_POLL_RECORDS_CONFIG + "=10"
+            })
+    public void onMessage(List<ConsumerRecord<String, AssignRequestIdEvent>> records, Acknowledgment acknowledgment) {
+        List<AssignRequestIdEvent> events = new ArrayList<>();
+        for (ConsumerRecord<String, AssignRequestIdEvent> record : records) {
+            events.add(record.value());
         }
-
-        // 进入等候室排队，并获取排队位置
-        long position = cacheGateway.nextQueuePosition(queueId);
-
-        // 获取等候室最新的servingPosition
-        long latestQueueServingPosition = cacheGateway.getLatestServingPosition(event.getQueueId());
-        requestPosition.assignQueuePosition(position, latestQueueServingPosition);
-
-        // 更新RequestPosition
-        cacheGateway.saveRequestPosition(requestPosition);
+        cacheGateway.assignQueuePositions(events);
+        acknowledgment.acknowledge();
     }
 }

@@ -20,10 +20,10 @@ package cn.zcn.virtual.waiting.room.infrastructure.configuration;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.mybatis.spring.annotation.MapperScan;
@@ -55,10 +55,7 @@ public class WaitingRoomConfiguration {
 
     @Bean
     public Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer() {
-        Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer =
-                new Jackson2JsonRedisSerializer<>(Object.class);
-        jackson2JsonRedisSerializer.setObjectMapper(new ObjectMapper()
-                .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)
+        ObjectMapper objectMapper = new ObjectMapper()
                 .setSerializationInclusion(JsonInclude.Include.NON_NULL)
                 .setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
@@ -68,7 +65,15 @@ public class WaitingRoomConfiguration {
                 .activateDefaultTyping(
                         LaissezFaireSubTypeValidator.instance,
                         ObjectMapper.DefaultTyping.NON_FINAL,
-                        JsonTypeInfo.As.PROPERTY));
+                        JsonTypeInfo.As.PROPERTY)
+                .setVisibility(VisibilityChecker.Std.defaultInstance()
+                        .withFieldVisibility(JsonAutoDetect.Visibility.ANY)
+                        .withGetterVisibility(JsonAutoDetect.Visibility.NONE)
+                        .withIsGetterVisibility(JsonAutoDetect.Visibility.NONE));
+
+        Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer =
+                new Jackson2JsonRedisSerializer<>(Object.class);
+        jackson2JsonRedisSerializer.setObjectMapper(objectMapper);
 
         return jackson2JsonRedisSerializer;
     }
@@ -76,10 +81,14 @@ public class WaitingRoomConfiguration {
     @Bean
     public ObjectMapper objectMapper() {
         return new ObjectMapper()
-                .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)
                 .setSerializationInclusion(JsonInclude.Include.NON_NULL)
                 .setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-                .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+                .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
+                .registerModule(new JavaTimeModule())
+                .setVisibility(VisibilityChecker.Std.defaultInstance()
+                        .withFieldVisibility(JsonAutoDetect.Visibility.ANY)
+                        .withGetterVisibility(JsonAutoDetect.Visibility.NONE)
+                        .withIsGetterVisibility(JsonAutoDetect.Visibility.NONE));
     }
 }

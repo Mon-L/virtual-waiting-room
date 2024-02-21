@@ -22,11 +22,11 @@ import static cn.zcn.virtual.waiting.room.domain.utils.RedisKeyUtils.*;
 import cn.zcn.virtual.waiting.room.domain.gateway.cache.CacheGateway;
 import cn.zcn.virtual.waiting.room.domain.model.entity.QueueServingPosition;
 import cn.zcn.virtual.waiting.room.domain.model.entity.RequestPosition;
+import cn.zcn.virtual.waiting.room.domain.model.event.AssignRequestIdEvent;
 import cn.zcn.virtual.waiting.room.domain.utils.RedisKeyUtils;
-import java.util.Date;
-import java.util.Set;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.*;
 import javax.annotation.Resource;
-import org.springframework.cache.CacheManager;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -42,21 +42,26 @@ public class CacheGatewayImpl implements CacheGateway {
     private RedisTemplate<String, Object> redisTemplate;
 
     @Resource
-    private CacheManager cacheManager;
+    private ObjectMapper objectMapper;
 
     @Override
     public void saveRequestPosition(RequestPosition requestPosition) {
-        cacheManager.getCache(REQUEST_NAME).put(requestPosition.getRequestId(), requestPosition);
+        String key = RedisKeyUtils.getRequest(requestPosition.getRequestId());
+        Map<?, ?> value = objectMapper.convertValue(requestPosition, Map.class);
+        redisTemplate.opsForHash().putAll(key, value);
     }
 
     @Override
     public RequestPosition getRequestPosition(String requestId) {
-        return cacheManager.getCache(REQUEST_NAME).get(requestId, RequestPosition.class);
+        String key = RedisKeyUtils.getRequest(requestId);
+        Map<?, ?> values = redisTemplate.opsForHash().entries(key);
+        return objectMapper.convertValue(values, RequestPosition.class);
     }
 
     @Override
     public void deleteRequestPosition(String requestId) {
-        cacheManager.getCache(REQUEST_NAME).evict(requestId);
+        String key = RedisKeyUtils.getRequest(requestId);
+        redisTemplate.delete(key);
     }
 
     @Override
@@ -74,15 +79,42 @@ public class CacheGatewayImpl implements CacheGateway {
     }
 
     @Override
-    public long nextQueuePosition(String queueId) {
-        String script = "redis.call('INCR', KEYS[1]); " + // 增加等候室等待人数
-                "return redis.call('INCR', KEYS[2]);"; // 递增并返回等候室排队位置
+    public void assignQueuePositions(List<AssignRequestIdEvent> events) {
+        StringJoiner stringJoiner = new StringJoiner(",");
+        for (AssignRequestIdEvent e : events) {
+            stringJoiner.add(e.getQueueId());
+            stringJoiner.add(e.getRequestId());
+        }
 
-        RedisScript<Long> typedScript = RedisScript.of(script, Long.class);
-        Long ans = redisTemplate.execute(
-                typedScript, joinKeys(getQueueWaitingNumKey(queueId), getQueueLatestPosition(queueId)));
-        assertNotNull(ans, typedScript.getResultType());
-        return ans;
+        String script = "local pairs = {} " + "local entryTime = ARGV[2] "
+                + "local argv1 = string.sub(ARGV[1], 2, -2)"
+                + "for p in string.gmatch(argv1, '[^,]+') do "
+                + "    table.insert(pairs, p) "
+                + "end "
+                + "for i=1, #pairs, 2 do "
+                + "   local queueId = pairs[i] "
+                + "   local requestId = pairs[i+1] "
+                + "   local latestServingPosKey = 'queue:issued.serving.positions:' .. queueId "
+                + "   local waitingNumKey = 'queue:waiting.num:' .. queueId "
+                + "   local latestPositionKey = 'queue:latest.position:' .. queueId "
+                + "   local requestKey = 'request:' .. requestId"
+                + "   local pos = redis.call('INCR', latestPositionKey) "
+                + "   local latestServingPos = redis.call('ZREVRANGEBYSCORE', latestServingPosKey, 0, 0)[1] "
+                + "   if redis.call('HGET', requestKey, 'queuePosition') ~= nil then "
+                + "        continue;"
+                + "   if latestServingPos == nil then "
+                + "      latestServingPos = 0 "
+                + "   end;"
+                + "   local canServedWhenEntry = 'false' "
+                + "   if latestServingPos >= pos then"
+                + "      canServedWhenEntry = 'true'"
+                + "   end;"
+                + "   redis.call('INCR', waitingNumKey) "
+                + "   redis.call('HMSET', requestKey, 'queuePosition', pos, 'entryTime', entryTime, 'canServedWhenEntry', canServedWhenEntry) "
+                + "end;";
+        RedisScript<Void> typedScript = RedisScript.of(script, Void.class);
+        redisTemplate.execute(
+                typedScript, Collections.emptyList(), stringJoiner.toString(), System.currentTimeMillis());
     }
 
     @Override

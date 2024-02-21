@@ -141,14 +141,6 @@ public class QueueServiceImpl implements QueueService {
             throw new RequestNotProcessedException("Request has not been processed.");
         }
 
-        // 检查Request状态，防止重复获取令牌
-        if (!requestPosition.canIssueAccessToken()) {
-            throw new InvalidRequestIdException(
-                    "Excepted request status {}, but got {}.",
-                    RequestStatus.INCOMPLETE.name(),
-                    requestPosition.getStatus().name());
-        }
-
         Long closestServingPositionIssuedTime =
                 cacheGateway.getIssuedTimeByClosestServingPosition(queueId, requestPosition.getQueuePosition());
         if (!requestPosition.canBeServed(closestServingPositionIssuedTime)) {
@@ -169,9 +161,8 @@ public class QueueServiceImpl implements QueueService {
         // 更新可服务的Request的数量
         cacheGateway.addServingRequest(queueId, requestId, accessToken.getExpiredTime());
 
-        // 更新RequestPosition
-        requestPosition.setStatus(RequestStatus.COMPLETED);
-        cacheGateway.saveRequestPosition(requestPosition);
+        // 删除RequestPosition
+        cacheGateway.deleteRequestPosition(requestPosition.getRequestId());
 
         return AccessTokenAssembler.INSTANCE.toAccessTokenDTO(accessToken);
     }

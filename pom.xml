@@ -73,11 +73,6 @@
                 <artifactId>mapstruct</artifactId>
                 <version>${org.mapstruct.version}</version>
             </dependency>
-            <dependency>
-                <groupId>org.apache.rocketmq</groupId>
-                <artifactId>rocketmq-spring-boot-starter</artifactId>
-                <version>${rocketmq.version}</version>
-            </dependency>
 
             <dependency>
                 <groupId>org.mybatis.spring.boot</groupId>

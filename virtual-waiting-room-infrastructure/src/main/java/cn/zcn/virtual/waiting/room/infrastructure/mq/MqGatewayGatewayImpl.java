@@ -17,13 +17,10 @@
 
 package cn.zcn.virtual.waiting.room.infrastructure.mq;
 
-import cn.zcn.virtual.waiting.room.domain.exception.WaitingRoomException;
 import cn.zcn.virtual.waiting.room.domain.gateway.mq.MqGateway;
 import cn.zcn.virtual.waiting.room.domain.model.event.AssignRequestIdEvent;
 import javax.annotation.Resource;
-import org.apache.rocketmq.client.producer.SendResult;
-import org.apache.rocketmq.client.producer.SendStatus;
-import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 /**
@@ -33,14 +30,10 @@ import org.springframework.stereotype.Component;
 public class MqGatewayGatewayImpl implements MqGateway {
 
     @Resource
-    private RocketMQTemplate rocketMQTemplate;
+    private KafkaTemplate<String, AssignRequestIdEvent> kafkaTemplate;
 
     @Override
     public void sendAssignRequest(AssignRequestIdEvent assignRequestIdEvent) {
-        SendResult sendResult = rocketMQTemplate.syncSend(AssignRequestIdEvent.DESTINATION, assignRequestIdEvent);
-        if (sendResult.getSendStatus() != SendStatus.SEND_OK) {
-            throw new WaitingRoomException("Failed to send AssignRequestIdEvent to MQ. SendStatus:"
-                    + sendResult.getSendStatus().name());
-        }
+        kafkaTemplate.send(AssignRequestIdEvent.TOPIC, assignRequestIdEvent);
     }
 }
